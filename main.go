@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/stupschwartz/go-pbrt/core/geometry"
+	"github.com/stupschwartz/go-pbrt/core"
 	"math"
 	"image"
 	"image/color"
@@ -25,15 +25,15 @@ type TraceData struct {
 
 type TraceResult struct {
 	x, y  int
-	value geometry.VectorXYZ
+	value *pbrt.Vector3
 }
 
 const INFINITY float64 = 10e8
 
-func trace(origin, direction *geometry.VectorXYZ, spheres []*geometry.Sphere, depth int) *geometry.VectorXYZ {
+func trace(origin, direction *pbrt.Vector3, spheres []*pbrt.Sphere, depth int) *pbrt.Vector3 {
 	tNear := INFINITY
 
-	//var sphere geometry.Sphere
+	//var sphere pbrt.Sphere
 	foundSphere := false
 
 	// Find sphere intersection
@@ -41,7 +41,7 @@ func trace(origin, direction *geometry.VectorXYZ, spheres []*geometry.Sphere, de
 	var intersects bool
 
 	for i := 0; i < len(spheres); i++ {
-		t0, t1, intersects = spheres[i].Intersect(origin, direction)
+		t0, t1, intersects = spheres[i].Intersects(origin, direction)
 		if (intersects) {
 			if t0 < 0 {
 				t0 = t1
@@ -55,13 +55,13 @@ func trace(origin, direction *geometry.VectorXYZ, spheres []*geometry.Sphere, de
 	}
 
 	if !foundSphere {
-		return geometry.NewVectorXYZ(0.1, 0.1, 0.1)
+		return pbrt.NewVector3(0.1, 0.1, 0.1)
 	}
 
-	return geometry.NewVectorXYZ(1, 1, 1)
+	return pbrt.NewVector3(1, 1, 1)
 }
 
-func worker(parentSpan opentracing.Span, id int, camera CameraSettings, spheres []*geometry.Sphere, traceQueue <-chan TraceData, traceResults chan <- TraceResult, done chan <- bool) {
+func worker(parentSpan opentracing.Span, id int, camera CameraSettings, spheres []*pbrt.Sphere, traceQueue <-chan *TraceData, traceResults chan <- *TraceResult, done chan <- bool) {
 	span := parentSpan.Tracer().StartSpan("worker",
 		opentracing.ChildOf(parentSpan.Context()),
 	)
@@ -72,8 +72,8 @@ func worker(parentSpan opentracing.Span, id int, camera CameraSettings, spheres 
 	fmt.Println("Worker", id, "started")
 	itemProcessing := 0
 
-	origin := geometry.NewVectorXYZ(0, 0, 0)
-	rayDir := geometry.NewVectorXYZ(0, 0, -1)
+	origin := pbrt.NewVector3(0, 0, 0)
+	rayDir := pbrt.NewVector3(0, 0, -1)
 
 	var xx, yy float64
 
@@ -86,10 +86,10 @@ func worker(parentSpan opentracing.Span, id int, camera CameraSettings, spheres 
 		rayDir.Normalize()
 
 		pixel := trace(origin, rayDir, spheres, traceItem.depth)
-		traceResults <- TraceResult{
+		traceResults <- &TraceResult{
 			x: traceItem.x,
 			y: traceItem.y,
-			value: *pixel,
+			value: pixel,
 		}
 		itemProcessing += 1
 	}
@@ -120,7 +120,7 @@ func NewCameraSettings(width, height int) CameraSettings {
 	}
 }
 
-func render(parentSpan opentracing.Span, spheres []*geometry.Sphere) {
+func render(parentSpan opentracing.Span, spheres []*pbrt.Sphere) {
 	renderSpan := parentSpan.Tracer().StartSpan("render",
 		opentracing.ChildOf(parentSpan.Context()),
 	)
@@ -130,8 +130,8 @@ func render(parentSpan opentracing.Span, spheres []*geometry.Sphere) {
 
 	imgPng := image.NewNRGBA(image.Rect(0, 0, camera.Width, camera.Height))
 
-	traceQueue := make(chan TraceData, 2048)
-	traceResults := make(chan TraceResult, 2048)
+	traceQueue := make(chan *TraceData, 2048)
+	traceResults := make(chan *TraceResult, 2048)
 	nWorkers := 8
 	done := make(chan bool, nWorkers)
 	for i := 0; i < nWorkers; i++ {
@@ -145,7 +145,7 @@ func render(parentSpan opentracing.Span, spheres []*geometry.Sphere) {
 		for y := 0; y < camera.Height; y++ {
 			for x := 0; x < camera.Width; x++ {
 
-				traceQueue <- TraceData{
+				traceQueue <- &TraceData{
 					x: x,
 					y: y,
 					depth: 0,
@@ -239,7 +239,7 @@ func main() {
 
 	// START
 
-	spheres := []*geometry.Sphere{}
+	spheres := []*pbrt.Sphere{}
 
 	n := 9
 
@@ -256,10 +256,10 @@ func main() {
 				if z < 0 {
 					radius *= 2
 				}
-				spheres = append(spheres, &geometry.Sphere{
-					Center: geometry.NewVectorXYZ(x, y, z),
+				spheres = append(spheres, &pbrt.Sphere{
+					Center: pbrt.NewVector3(x, y, z),
 					Radius: radius,
-					SurfaceColor: geometry.NewVectorXYZ(1.0, 1.0, 1.0),
+					SurfaceColor: pbrt.NewVector3(1.0, 1.0, 1.0),
 					Reflection: 0,
 					Transparency: 0,
 				}, )
