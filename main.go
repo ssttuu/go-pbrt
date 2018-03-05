@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/stupschwartz/go-pbrt/core"
+	"github.com/stupschwartz/go-pbrt/pkg/pbrt"
 	"math"
 	"image"
 	"image/color"
