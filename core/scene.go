@@ -9,10 +9,15 @@ type Scene struct {
 	worldBound *Bounds3
 }
 
-func (s *Scene) Intersect(ray *Ray, si SurfaceInteraction) bool {
-	return s.aggregate.Intersect(ray, si)
+func (s *Scene) Intersect(r *Ray, si SurfaceInteraction) bool {
+	return s.aggregate.Intersect(r, si)
 }
 
-func (s *Scene) IntersectP(ray *Ray) bool {
-	return s.aggregate.IntersectP(ray)
+func (s *Scene) IntersectP(r *Ray) bool {
+	return s.aggregate.IntersectP(r)
 }
+
+//func (s *Scene) IntersectTr(r *Ray, sampler *Sampler, si *SurfaceInteraction, transmittance *Spectrum) bool {
+//
+//	*transmittance = Spectrum{}
+//}
