@@ -19,17 +19,19 @@ type Vector3f = XYZFloat64
 type Normal3i = XYZInt64
 type Normal3f = XYZFloat64
 
-func CoordinateSystem(v1, v2, v3 *Vector3f) {
+func CoordinateSystem(v1 *Vector3f) (v2, v3 *Vector3f) {
 	if math.Abs(v1.X) > math.Abs(v1.Y) {
 		v := v1.X*v1.X + v1.Z*v1.Z
-		*v2 = Vector3f{-v1.Z, 0, v1.X}
+		v2 = &Vector3f{-v1.Z, 0, v1.X}
 		v2.DivAssign(&Vector3f{v, v, v})
 	} else {
 		v := v1.Y*v1.Y + v1.Z*v1.Z
-		*v2 = Vector3f{0, v1.Z, -v1.Y}
+		v2 = &Vector3f{0, v1.Z, -v1.Y}
 		v2.DivAssign(&Vector3f{v, v, v})
 	}
-	*v3 = *v1.Cross(v2)
+	v3 = v1.Cross(v2)
+
+	return v2, v3
 }
 
 func SphericalDirection(sinTheta, cosTheta, phi float64) *Vector3f {

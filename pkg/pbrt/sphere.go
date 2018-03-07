@@ -183,3 +183,105 @@ func (s *Sphere) IntersectP(r *Ray, testAlphaTexture bool) (intersects bool) {
 
 	return true
 }
+
+func (s *Sphere) Sample(u *Point2f) (i Interactioner, pdf float64) {
+	pObj := new(Point3f).Add(UniformSampleSphere(u).MulScalar(s.radius))
+
+	var it *Interaction
+	it.normal = s.objectToWorld.TransformNormal((*Normal3f)(pObj)).Normalized()
+	if s.reverseOrientation {
+		it.normal = it.normal.MulScalar(-1)
+	}
+
+	// reproject pObj to sphere surface
+	pObj = pObj.MulScalar(s.radius / pObj.Distance(&Point3f{0, 0, 0}))
+	it.point = s.objectToWorld.TransformPoint(pObj)
+
+	return it, 1.0 / s.Area()
+}
+
+func (s *Sphere) SampleAtInteraction(ref Interactioner, u *Point2f) (i Interactioner, pdf float64) {
+	pCenter := s.objectToWorld.TransformPoint(&Point3f{0, 0, 0})
+
+	pOrigin := ref.GetPoint()
+	if pOrigin.Distance(pCenter) <= s.radius {
+		intr, pdf := s.Sample(u)
+		wi := intr.GetPoint().Sub(ref.GetPoint())
+		if wi.LengthSquared() == 0 {
+			pdf = 0
+		} else {
+			wi.Normalize()
+			pdf = ref.GetPoint().LengthSquared() / intr.GetNormal().AbsDot(wi.MulScalar(-1))
+		}
+
+		if math.IsInf(pdf, 1) {
+			pdf = 0.0
+		}
+		return intr, pdf
+	}
+
+	// compute coordinate system for sphere sampling
+	wc := pCenter.Sub(ref.GetPoint()).Normalized()
+	wcX, wcY := CoordinateSystem(wc)
+
+	radiusSquared := s.radius * s.radius
+
+	// sample sphere uniformly inside subtended code
+
+	// compute theta and phi values for sample in code
+	sinThetaMax2 := radiusSquared / ref.GetPoint().Distance(pCenter)
+	cosThetaMax := math.Sqrt(math.Max(0, 1.0-sinThetaMax2))
+	cosTheta := (1.0 - u.X) + u.X*cosThetaMax
+	sinTheta := math.Sqrt(math.Max(0, 1-cosTheta*cosTheta))
+	phi := u.Y * 2 * math.Pi
+
+	// compute angle alpha from center of sphere to sampled point on surface
+	dc := ref.GetPoint().Distance(pCenter)
+	dcSquared := dc * dc
+	ds := dc*cosTheta - math.Sqrt(math.Max(0, radiusSquared-dcSquared*sinTheta*sinTheta))
+	cosAlpha := (dcSquared + radiusSquared - ds*ds) / (2.0 * dc * s.radius)
+	sinAlpha := math.Sqrt(math.Max(0, 1.0-cosAlpha*cosAlpha))
+
+	// compute surface normal and sampled point on sphere
+	nWorld := SphericalDirectionXYZ(sinAlpha, cosAlpha, phi, wcX.MulScalar(-1), wcY.MulScalar(-1), wc.MulScalar(-1))
+	pWorld := pCenter.Add(nWorld.MulScalar(s.radius))
+
+	// return interaction for sampled point on sphere
+	var it *Interaction
+	it.point = pWorld
+	it.normal = (*Normal3f)(nWorld)
+	if s.reverseOrientation {
+		it.normal = it.normal.MulScalar(-1)
+	}
+
+	// uniform code PDF
+	pdf = 1.0 / (2.0 * math.Pi * (1 - cosThetaMax))
+
+	return it, pdf
+}
+
+func (s *Sphere) Pdf(ref Interactioner, wi *Vector3f) float64 {
+	pCenter := s.objectToWorld.TransformPoint(&Point3f{0, 0, 0})
+	pOrigin := ref.GetPoint()
+
+	if pOrigin.Distance(pCenter) <= s.radius {
+		return s.Shape.Pdf(ref, wi)
+	}
+
+	sinThetaMax2 := s.radius * s.radius / ref.GetPoint().Dot(pCenter)
+	cosThetaMax := math.Sqrt(math.Max(0, 1.0-sinThetaMax2))
+
+	return UniformConePdf(cosThetaMax)
+}
+
+func (s *Sphere) SolidAngle(p *Point3f, nSamples int) float64 {
+	pCenter := s.objectToWorld.TransformPoint(&Point3f{0, 0, 0})
+	if p.Distance(pCenter) <= s.radius {
+		return 4 * math.Pi
+	}
+
+	sinTheta2 := s.radius * s.radius / p.Dot(pCenter)
+	cosTheta := math.Sqrt(math.Max(0, 1.0-sinTheta2))
+
+	return 2 * math.Pi * (1.0 - cosTheta)
+}

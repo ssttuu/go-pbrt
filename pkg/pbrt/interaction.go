@@ -174,8 +174,7 @@ func (hg *HenyeyGreenstein) SampleP(wo, wi *Vector3f, u *Point2f) float64 {
 
 	sinTheta := math.Sqrt(math.Max(0.0, 1.0 - cosTheta * cosTheta))
 	phi := 2.0 * math.Pi * u.Y
-	var v1, v2 Vector3f
-	CoordinateSystem(wo, &v1, &v2)
-	*wi = *SphericalDirectionXYZ(sinTheta, cosTheta, phi, &v1, &v2, wo.MulScalar(-1.0))
+	v1, v2 := CoordinateSystem(wo)
+	*wi = *SphericalDirectionXYZ(sinTheta, cosTheta, phi, v1, v2, wo.MulScalar(-1.0))
 	return PhaseHG(-cosTheta, hg.g)
 }

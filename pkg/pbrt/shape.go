@@ -11,6 +11,8 @@ type Shaper interface {
 	IntersectP(r *Ray, testAlphaTexture bool) (intersects bool)
 	Sample(u *Point2f) (i Interactioner, pdf float64)
 	SampleAtInteraction(ref Interactioner, u *Point2f) (i Interactioner, pdf float64)
+	Pdf(ref Interactioner, wi *Vector3f) float64
+	SolidAngle(p *Point3f, nSamples int) float64
 }
 
 type Shape struct {
@@ -47,7 +49,7 @@ func (s *Shape) Sample(u *Point2f) (i Interactioner, pdf float64) {
 }
 
 // Pdf calculates the Probability Distribution Function
-func (s *Shape) Pdf(ref Interactioner) float64 {
+func (s *Shape) Pdf(ref Interactioner, wi *Vector3f) float64 {
 	return 1 / s.Area()
 }
 
