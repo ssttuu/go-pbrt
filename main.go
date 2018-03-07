@@ -25,43 +25,29 @@ type TraceData struct {
 
 type TraceResult struct {
 	x, y  int
-	value *pbrt.Vector3
+	value pbrt.Vector3f
 }
 
-const INFINITY float64 = 10e8
-
-func trace(origin, direction *pbrt.Vector3, spheres []*pbrt.Sphere, depth int) *pbrt.Vector3 {
-	tNear := INFINITY
-
+func trace(r *pbrt.Ray, shapes []pbrt.Shaper, depth int) *pbrt.Vector3f {
 	//var sphere pbrt.Sphere
 	foundSphere := false
 
 	// Find sphere intersection
-	var t0, t1 float64
-	var intersects bool
-
-	for i := 0; i < len(spheres); i++ {
-		t0, t1, intersects = spheres[i].Intersects(origin, direction)
-		if (intersects) {
-			if t0 < 0 {
-				t0 = t1
-			}
-			if t0 < tNear {
-				tNear = t0
-				//sphere := spheres[i]
-				foundSphere = true
-			}
+	for i := 0; i < len(shapes); i++ {
+		intersects := shapes[i].IntersectP(r, true)
+		if intersects {
+			foundSphere = true
 		}
 	}
 
 	if !foundSphere {
-		return pbrt.NewVector3(0.1, 0.1, 0.1)
+		return &pbrt.Vector3f{0.1, 0.1, 0.1}
 	}
 
-	return pbrt.NewVector3(1, 1, 1)
+	return &pbrt.Vector3f{1, 1, 1}
 }
 
-func worker(parentSpan opentracing.Span, id int, camera CameraSettings, spheres []*pbrt.Sphere, traceQueue <-chan *TraceData, traceResults chan <- *TraceResult, done chan <- bool) {
+func worker(parentSpan opentracing.Span, id int, camera CameraSettings, shapes []pbrt.Shaper, traceQueue <-chan *TraceData, traceResults chan <- *TraceResult, done chan <- bool) {
 	span := parentSpan.Tracer().StartSpan("worker",
 		opentracing.ChildOf(parentSpan.Context()),
 	)
@@ -72,24 +58,19 @@ func worker(parentSpan opentracing.Span, id int, camera CameraSettings, spheres 
 	fmt.Println("Worker", id, "started")
 	itemProcessing := 0
 
-	origin := pbrt.NewVector3(0, 0, 0)
-	rayDir := pbrt.NewVector3(0, 0, -1)
-
 	var xx, yy float64
 
 	for traceItem := range traceQueue {
 		xx = (2.0 * ((float64(traceItem.x) + 0.5) * camera.InverseWidth) - 1.0) * camera.Angle * camera.AspectRatio
 		yy = (1.0 - 2.0 * ((float64(traceItem.y) + 0.5) * camera.InverseHeight)) * camera.Angle
 
-		rayDir.SetX(xx)
-		rayDir.SetY(yy)
-		rayDir.Normalize()
+		ray := pbrt.NewRay(&pbrt.Point3f{0, 0, 0}, new(pbrt.Vector3f).Set(xx, yy, -1).Normalized(), 0.0)
 
-		pixel := trace(origin, rayDir, spheres, traceItem.depth)
+		pixel := trace(ray, shapes, traceItem.depth)
 		traceResults <- &TraceResult{
 			x: traceItem.x,
 			y: traceItem.y,
-			value: pixel,
+			value: *pixel,
 		}
 		itemProcessing += 1
 	}
@@ -120,13 +101,14 @@ func NewCameraSettings(width, height int) CameraSettings {
 	}
 }
 
-func render(parentSpan opentracing.Span, spheres []*pbrt.Sphere) {
+func render(parentSpan opentracing.Span, shapes []pbrt.Shaper) {
 	renderSpan := parentSpan.Tracer().StartSpan("render",
 		opentracing.ChildOf(parentSpan.Context()),
 	)
 	defer renderSpan.Finish()
 
-	camera := NewCameraSettings(1920, 1080)
+	camera := NewCameraSettings(192, 108)
+	//camera := NewCameraSettings(1920, 1080)
 
 	imgPng := image.NewNRGBA(image.Rect(0, 0, camera.Width, camera.Height))
 
@@ -135,7 +117,7 @@ func render(parentSpan opentracing.Span, spheres []*pbrt.Sphere) {
 	nWorkers := 8
 	done := make(chan bool, nWorkers)
 	for i := 0; i < nWorkers; i++ {
-		go worker(renderSpan, i, camera, spheres, traceQueue, traceResults, done)
+		go worker(renderSpan, i, camera, shapes, traceQueue, traceResults, done)
 	}
 
 	go func() {
@@ -168,9 +150,9 @@ func render(parentSpan opentracing.Span, spheres []*pbrt.Sphere) {
 		select {
 		case traceResult := <-traceResults:
 			imgPng.Set(traceResult.x, traceResult.y, color.NRGBA{
-				R: uint8(traceResult.value.GetX() * 255),
-				G: uint8(traceResult.value.GetY() * 255),
-				B: uint8(traceResult.value.GetZ() * 255),
+				R: uint8(traceResult.value.X * 255),
+				G: uint8(traceResult.value.Y * 255),
+				B: uint8(traceResult.value.Z * 255),
 				A: 255,
 			})
 		case <-done:
@@ -239,7 +221,7 @@ func main() {
 
 	// START
 
-	spheres := []*pbrt.Sphere{}
+	var shapes []pbrt.Shaper
 
 	n := 9
 
@@ -256,13 +238,10 @@ func main() {
 				if z < 0 {
 					radius *= 2
 				}
-				spheres = append(spheres, &pbrt.Sphere{
-					Center: pbrt.NewVector3(x, y, z),
-					Radius: radius,
-					SurfaceColor: pbrt.NewVector3(1.0, 1.0, 1.0),
-					Reflection: 0,
-					Transparency: 0,
-				}, )
+
+				xform := pbrt.Translate(&pbrt.Vector3f{x, y, z})
+
+				shapes = append(shapes, pbrt.NewSphereShape(xform, xform.Inverse(), false, radius))
 			}
 		}
 	}
@@ -270,5 +249,5 @@ func main() {
 	span := opentracing.StartSpan("render")
 	defer span.Finish()
 
-	render(span, spheres)
+	render(span, shapes)
 }

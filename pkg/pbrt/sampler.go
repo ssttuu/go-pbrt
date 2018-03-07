@@ -6,7 +6,7 @@ type Sampler interface {
 }
 
 type PixelSampler struct {
-	currentPixel *Point2
+	currentPixel *Point2i
 }
 
 

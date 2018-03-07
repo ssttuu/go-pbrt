@@ -1,14 +1,14 @@
 package pbrt
 
 
-type Medium interface {
-	Tr() Spectrum
-	Sample() Spectrum
+type Mediumer interface {
+	Tr(r *Ray, s *Sampler) Spectrum
+	Sample(r *Ray, s *Sampler, arena *MemoryArena, mi *MediumInteraction) Spectrum
 }
 
 // Named MediumInterface in PBRT book.  Avoiding confusing names
 type MediumAccessor struct {
-	Inside, Outside *Medium
+	Inside, Outside Mediumer
 }
 
 func (ma *MediumAccessor) IsMediumTransition() bool {
