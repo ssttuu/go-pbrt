@@ -31,6 +31,12 @@ func (xy *XYInt64) SetIndex(i int, v int64) {
 	}
 }
 
+func (xy *XYInt64) Set(x, y int64) *XYInt64 {
+	xy.X = x
+	xy.Y = y
+	return xy
+}
+
 func (xy *XYInt64) LengthSquared() int64 {
 	return xy.X*xy.X + xy.Y*xy.Y
 }
@@ -93,6 +99,20 @@ func (xy *XYInt64) Equals(other *XYInt64) bool {
 
 func (xy *XYInt64) NotEquals(other *XYInt64) bool {
 	return xy.X != other.X || xy.Y != other.Y
+}
+
+func (xy *XYInt64) Floor() *XYInt64 {
+	return &XYInt64{
+		X: int64(math.Floor(float64(xy.X))),
+		Y: int64(math.Floor(float64(xy.Y))),
+	}
+}
+
+func (xy *XYInt64) Ceil() *XYInt64 {
+	return &XYInt64{
+		X: int64(math.Ceil(float64(xy.X))),
+		Y: int64(math.Ceil(float64(xy.Y))),
+	}
 }
 
 type XYZInt64 struct {
@@ -291,6 +311,12 @@ func (xy *XYFloat64) SetIndex(i int, v float64) {
 	}
 }
 
+func (xy *XYFloat64) Set(x, y float64) *XYFloat64 {
+	xy.X = x
+	xy.Y = y
+	return xy
+}
+
 func (xy *XYFloat64) LengthSquared() float64 {
 	return xy.X*xy.X + xy.Y*xy.Y
 }
@@ -353,6 +379,20 @@ func (xy *XYFloat64) Equals(other *XYFloat64) bool {
 
 func (xy *XYFloat64) NotEquals(other *XYFloat64) bool {
 	return xy.X != other.X || xy.Y != other.Y
+}
+
+func (xy *XYFloat64) Floor() *XYFloat64 {
+	return &XYFloat64{
+		X: float64(math.Floor(float64(xy.X))),
+		Y: float64(math.Floor(float64(xy.Y))),
+	}
+}
+
+func (xy *XYFloat64) Ceil() *XYFloat64 {
+	return &XYFloat64{
+		X: float64(math.Ceil(float64(xy.X))),
+		Y: float64(math.Ceil(float64(xy.Y))),
+	}
 }
 
 type XYZFloat64 struct {

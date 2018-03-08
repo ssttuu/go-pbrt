@@ -31,6 +31,12 @@ func (xy *XYGenericType) SetIndex(i int, v GenericType) {
 	}
 }
 
+func (xy *XYGenericType) Set(x, y GenericType) *XYGenericType {
+	xy.X = x
+	xy.Y = y
+	return xy
+}
+
 func (xy *XYGenericType) LengthSquared() GenericType {
 	return xy.X*xy.X + xy.Y*xy.Y
 }
@@ -95,6 +101,20 @@ func (xy *XYGenericType) NotEquals(other *XYGenericType) bool {
 	return xy.X != other.X || xy.Y != other.Y
 }
 
+func (xy *XYGenericType) Floor() *XYGenericType {
+	return &XYGenericType{
+		X: GenericType(math.Floor(float64(xy.X))),
+		Y: GenericType(math.Floor(float64(xy.Y))),
+	}
+}
+
+func (xy *XYGenericType) Ceil() *XYGenericType {
+	return &XYGenericType{
+		X: GenericType(math.Ceil(float64(xy.X))),
+		Y: GenericType(math.Ceil(float64(xy.Y))),
+	}
+}
+
 type XYZGenericType struct {
 	X, Y, Z GenericType
 }
@@ -129,7 +149,7 @@ func (xyz *XYZGenericType) Set(x, y, z GenericType) *XYZGenericType {
 }
 
 func (xyz *XYZGenericType) LengthSquared() GenericType {
-	return xyz.X * xyz.X + xyz.Y * xyz.Y + xyz.Z * xyz.Z
+	return xyz.X*xyz.X + xyz.Y*xyz.Y + xyz.Z*xyz.Z
 }
 
 func (xyz *XYZGenericType) Length() GenericType {

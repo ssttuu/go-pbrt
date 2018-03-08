@@ -19,6 +19,20 @@ type Vector3f = XYZFloat64
 type Normal3i = XYZInt64
 type Normal3f = XYZFloat64
 
+func NewPoint2fFromPoint2i(p *Point2i) *Point2f {
+	return &Point2f{
+		X: float64(p.X),
+		Y: float64(p.Y),
+	}
+}
+
+func NewPoint2iFromPoint2f(p *Point2f) *Point2i {
+	return &Point2i{
+		X: int64(p.X),
+		Y: int64(p.Y),
+	}
+}
+
 func CoordinateSystem(v1 *Vector3f) (v2, v3 *Vector3f) {
 	if math.Abs(v1.X) > math.Abs(v1.Y) {
 		v := v1.X*v1.X + v1.Z*v1.Z
