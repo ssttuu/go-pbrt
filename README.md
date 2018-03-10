@@ -7,3 +7,5 @@ Run
 ```
 make run
 ```
+
+![Sphere Render](https://raw.githubusercontent.com/stupschwartz/go-pbrt/master/image.png)
