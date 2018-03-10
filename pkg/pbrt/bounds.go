@@ -139,8 +139,14 @@ func (b *Bounds3) Offset(other *Point3f) *Vector3f {
 	return o
 }
 
-func (b *Bounds3) Union(p *Point3f) *Bounds3 {
+func (b *Bounds3) UnionPoint(p *Point3f) *Bounds3 {
 	b.min = MinPoint(b.min, p)
-	b.max = MaxPoint(b.min, p)
+	b.max = MaxPoint(b.max, p)
+	return b
+}
+
+func (b *Bounds3) Union(b2 *Bounds3) *Bounds3 {
+	b.min = MinPoint(b.min, b2.min)
+	b.max = MinPoint(b.max, b2.max)
 	return b
 }

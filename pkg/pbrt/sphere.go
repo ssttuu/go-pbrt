@@ -35,8 +35,12 @@ func NewSphereShape(o2w, w2o *Transform, reverseOrientation bool, radius float64
 func (s *Sphere) ObjectBound() *Bounds3 {
 	return &Bounds3{
 		min: &Point3f{-s.radius, -s.radius, s.zMin},
-		max: &Point3f{s.radius, s.radius, s.zMax},
+		max: &Point3f{ s.radius,  s.radius, s.zMax},
 	}
+}
+
+func (s *Sphere) WorldBound() *Bounds3 {
+	return s.objectToWorld.TransformBounds(s.ObjectBound())
 }
 
 func (s *Sphere) Intersect(r *Ray, testAlphaTexture bool) (intersects bool, tHit float64, si *SurfaceInteraction) {
@@ -184,10 +188,10 @@ func (s *Sphere) IntersectP(r *Ray, testAlphaTexture bool) (intersects bool) {
 	return true
 }
 
-func (s *Sphere) Sample(u *Point2f) (i Interactioner, pdf float64) {
+func (s *Sphere) Sample(u *Point2f) (i Interaction, pdf float64) {
 	pObj := new(Point3f).Add(UniformSampleSphere(u).MulScalar(s.radius))
 
-	var it *Interaction
+	var it *interaction
 	it.normal = s.objectToWorld.TransformNormal((*Normal3f)(pObj)).Normalized()
 	if s.reverseOrientation {
 		it.normal = it.normal.MulScalar(-1)
@@ -200,7 +204,7 @@ func (s *Sphere) Sample(u *Point2f) (i Interactioner, pdf float64) {
 	return it, 1.0 / s.Area()
 }
 
-func (s *Sphere) SampleAtInteraction(ref Interactioner, u *Point2f) (i Interactioner, pdf float64) {
+func (s *Sphere) SampleAtInteraction(ref Interaction, u *Point2f) (i Interaction, pdf float64) {
 	pCenter := s.objectToWorld.TransformPoint(&Point3f{0, 0, 0})
 
 	pOrigin := ref.GetPoint()
@@ -247,7 +251,7 @@ func (s *Sphere) SampleAtInteraction(ref Interactioner, u *Point2f) (i Interacti
 	pWorld := pCenter.Add(nWorld.MulScalar(s.radius))
 
 	// return interaction for sampled point on sphere
-	var it *Interaction
+	var it *interaction
 	it.point = pWorld
 	it.normal = (*Normal3f)(nWorld)
 	if s.reverseOrientation {
@@ -260,18 +264,18 @@ func (s *Sphere) SampleAtInteraction(ref Interactioner, u *Point2f) (i Interacti
 	return it, pdf
 }
 
-func (s *Sphere) Pdf(ref Interactioner, wi *Vector3f) float64 {
+func (s *Sphere) PdfWi(ref Interaction) (float64, *Vector3f) {
 	pCenter := s.objectToWorld.TransformPoint(&Point3f{0, 0, 0})
 	pOrigin := ref.GetPoint()
 
 	if pOrigin.Distance(pCenter) <= s.radius {
-		return s.Shape.Pdf(ref, wi)
+		return s.Shape.PdfWi(ref)
 	}
 
 	sinThetaMax2 := s.radius * s.radius / ref.GetPoint().Dot(pCenter)
 	cosThetaMax := math.Sqrt(math.Max(0, 1.0-sinThetaMax2))
 
-	return UniformConePdf(cosThetaMax)
+	return UniformConePdf(cosThetaMax), new(Vector3f)
 }
 
 func (s *Sphere) SolidAngle(p *Point3f, nSamples int) float64 {

@@ -60,3 +60,17 @@ type RayDifferential struct {
 	rxOrigin, ryOrigin       *Point3f
 	rxDirection, ryDirection *Vector3f
 }
+
+func NewRayDifferentialFromRay(r *Ray) *RayDifferential {
+	return &RayDifferential{
+		Ray: r,
+		hasDifferentials: false,
+	}
+}
+
+func (rd *RayDifferential) ScaleDifferentials(s float64) {
+	rd.rxOrigin = rd.origin.Add(rd.rxOrigin.Sub(rd.origin).MulScalar(s))
+	rd.ryOrigin = rd.origin.Add(rd.ryOrigin.Sub(rd.origin).MulScalar(s))
+	rd.rxDirection = rd.direction.Add(rd.rxDirection.Sub(rd.direction).MulScalar(s))
+	rd.ryDirection = rd.direction.Add(rd.ryDirection.Sub(rd.direction).MulScalar(s))
+}

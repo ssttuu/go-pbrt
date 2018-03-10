@@ -9,10 +9,12 @@ type Shaper interface {
 	WorldBound() *Bounds3
 	Intersect(r *Ray, testAlphaTexture bool) (intersects bool, tHit float64, si *SurfaceInteraction)
 	IntersectP(r *Ray, testAlphaTexture bool) (intersects bool)
-	Sample(u *Point2f) (i Interactioner, pdf float64)
-	SampleAtInteraction(ref Interactioner, u *Point2f) (i Interactioner, pdf float64)
-	Pdf(ref Interactioner, wi *Vector3f) float64
+	Sample(u *Point2f) (i Interaction, pdf float64)
+	SampleAtInteraction(ref Interaction, u *Point2f) (i Interaction, pdf float64)
+	Pdf(ref Interaction) float64
+	PdfWi(ref Interaction) (float64, *Vector3f)
 	SolidAngle(p *Point3f, nSamples int) float64
+	Area() float64
 }
 
 type Shape struct {
@@ -43,17 +45,21 @@ func (s *Shape) Area() float64 {
 	return 0
 }
 
-func (s *Shape) Sample(u *Point2f) (i Interactioner, pdf float64) {
+func (s *Shape) Sample(u *Point2f) (i Interaction, pdf float64) {
 	// TODO
 	return nil, 0
 }
 
 // Pdf calculates the Probability Distribution Function
-func (s *Shape) Pdf(ref Interactioner, wi *Vector3f) float64 {
+func (s *Shape) Pdf(ref Interaction) float64 {
 	return 1 / s.Area()
 }
 
-func (s *Shape) SampleAtInteraction(ref Interactioner, u *Point2f) (i Interactioner, pdf float64) {
+func (s *Shape) PdfWi(ref Interaction) (float64, *Vector3f) {
+	return s.Pdf(ref), new(Vector3f)
+}
+
+func (s *Shape) SampleAtInteraction(ref Interaction, u *Point2f) (i Interaction, pdf float64) {
 	intr, pdf := s.Sample(u)
 	wi := intr.GetPoint().Sub(ref.GetPoint())
 	if wi.LengthSquared() == 0.0 {
@@ -69,7 +75,7 @@ func (s *Shape) SampleAtInteraction(ref Interactioner, u *Point2f) (i Interactio
 
 }
 
-func (s *Shape) PdfAtInteraction(ref Interactioner, wi *Vector3f) float64 {
+func (s *Shape) PdfAtInteraction(ref Interaction, wi *Vector3f) float64 {
 	r := ref.SpawnRay(wi)
 
 	intersects, _, lightInteraction := s.Intersect(r, false)
@@ -85,7 +91,7 @@ func (s *Shape) PdfAtInteraction(ref Interactioner, wi *Vector3f) float64 {
 }
 
 func (s *Shape) SolidAngle(p *Point3f, nSamples int) float64 {
-	ref := &Interaction{
+	ref := &interaction{
 		point: p,
 		wo: &Vector3f{0, 0, 1},
 	}

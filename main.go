@@ -28,17 +28,8 @@ type TraceResult struct {
 	value pbrt.Vector3f
 }
 
-func trace(r *pbrt.Ray, shapes []pbrt.Shaper, depth int) *pbrt.Vector3f {
-	//var sphere pbrt.Sphere
-	foundSphere := false
-
-	// Find sphere intersection
-	for i := 0; i < len(shapes); i++ {
-		intersects := shapes[i].IntersectP(r, true)
-		if intersects {
-			foundSphere = true
-		}
-	}
+func trace(r *pbrt.Ray, scene *pbrt.Scene, depth int) *pbrt.Vector3f {
+	foundSphere := scene.Aggregate.IntersectP(r)
 
 	if !foundSphere {
 		return &pbrt.Vector3f{0.1, 0.1, 0.1}
@@ -47,7 +38,7 @@ func trace(r *pbrt.Ray, shapes []pbrt.Shaper, depth int) *pbrt.Vector3f {
 	return &pbrt.Vector3f{1, 1, 1}
 }
 
-func worker(parentSpan opentracing.Span, id int, camera CameraSettings, shapes []pbrt.Shaper, traceQueue <-chan *TraceData, traceResults chan <- *TraceResult, done chan <- bool) {
+func worker(parentSpan opentracing.Span, id int, camera CameraSettings, scene *pbrt.Scene, traceQueue <-chan *TraceData, traceResults chan<- *TraceResult, done chan<- bool) {
 	span := parentSpan.Tracer().StartSpan("worker",
 		opentracing.ChildOf(parentSpan.Context()),
 	)
@@ -61,15 +52,15 @@ func worker(parentSpan opentracing.Span, id int, camera CameraSettings, shapes [
 	var xx, yy float64
 
 	for traceItem := range traceQueue {
-		xx = (2.0 * ((float64(traceItem.x) + 0.5) * camera.InverseWidth) - 1.0) * camera.Angle * camera.AspectRatio
-		yy = (1.0 - 2.0 * ((float64(traceItem.y) + 0.5) * camera.InverseHeight)) * camera.Angle
+		xx = (2.0*((float64(traceItem.x)+0.5)*camera.InverseWidth) - 1.0) * camera.Angle * camera.AspectRatio
+		yy = (1.0 - 2.0*((float64(traceItem.y)+0.5)*camera.InverseHeight)) * camera.Angle
 
 		ray := pbrt.NewRay(&pbrt.Point3f{0, 0, 0}, new(pbrt.Vector3f).Set(xx, yy, -1).Normalized(), 0.0)
 
-		pixel := trace(ray, shapes, traceItem.depth)
+		pixel := trace(ray, scene, traceItem.depth)
 		traceResults <- &TraceResult{
-			x: traceItem.x,
-			y: traceItem.y,
+			x:     traceItem.x,
+			y:     traceItem.y,
 			value: *pixel,
 		}
 		itemProcessing += 1
@@ -90,24 +81,23 @@ type CameraSettings struct {
 func NewCameraSettings(width, height int) CameraSettings {
 	fov := 30.0
 	return CameraSettings{
-		Width: width,
-		Height: height,
-		InverseWidth: 1 / float64(width),
+		Width:         width,
+		Height:        height,
+		InverseWidth:  1 / float64(width),
 		InverseHeight: 1 / float64(width),
-		FOV: fov,
-		AspectRatio: float64(width) / float64(height),
-		Angle: math.Tan(math.Pi * 0.5 * fov / 180.0),
-
+		FOV:           fov,
+		AspectRatio:   float64(width) / float64(height),
+		Angle:         math.Tan(math.Pi * 0.5 * fov / 180.0),
 	}
 }
 
-func render(parentSpan opentracing.Span, shapes []pbrt.Shaper) {
+func render(parentSpan opentracing.Span, scene *pbrt.Scene) {
 	renderSpan := parentSpan.Tracer().StartSpan("render",
 		opentracing.ChildOf(parentSpan.Context()),
 	)
 	defer renderSpan.Finish()
 
-	camera := NewCameraSettings(192, 108)
+	camera := NewCameraSettings(192 * 5, 108 * 5)
 	//camera := NewCameraSettings(1920, 1080)
 
 	imgPng := image.NewNRGBA(image.Rect(0, 0, camera.Width, camera.Height))
@@ -117,7 +107,7 @@ func render(parentSpan opentracing.Span, shapes []pbrt.Shaper) {
 	nWorkers := 8
 	done := make(chan bool, nWorkers)
 	for i := 0; i < nWorkers; i++ {
-		go worker(renderSpan, i, camera, shapes, traceQueue, traceResults, done)
+		go worker(renderSpan, i, camera, scene, traceQueue, traceResults, done)
 	}
 
 	go func() {
@@ -128,8 +118,8 @@ func render(parentSpan opentracing.Span, shapes []pbrt.Shaper) {
 			for x := 0; x < camera.Width; x++ {
 
 				traceQueue <- &TraceData{
-					x: x,
-					y: y,
+					x:     x,
+					y:     y,
 					depth: 0,
 				}
 			}
@@ -184,7 +174,7 @@ func getTracer() (opentracing.Tracer, io.Closer) {
 	metricsFactory := prometheus.New()
 	cfg := config.Configuration{
 		Sampler: &config.SamplerConfig{
-			Type: "const",
+			Type:  "const",
 			Param: 1,
 		},
 		Reporter: &config.ReporterConfig{
@@ -207,21 +197,21 @@ var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 
 func main() {
 	flag.Parse()
-    if *cpuprofile != "" {
-        f, err := os.Create(*cpuprofile)
-        if err != nil {
-            log.Fatal(err)
-        }
-        pprof.StartCPUProfile(f)
-        defer pprof.StopCPUProfile()
-    }
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			log.Fatal(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
 
 	//tracer, closer := getTracer()
 	//defer closer.Close()
 
 	// START
 
-	var shapes []pbrt.Shaper
+	var primitives []pbrt.Primitive
 
 	n := 9
 
@@ -240,8 +230,10 @@ func main() {
 				}
 
 				xform := pbrt.Translate(&pbrt.Vector3f{x, y, z})
+				sphere := pbrt.NewSphereShape(xform, xform.Inverse(), false, radius)
+				geoPrim := &pbrt.GeometricPrimitive{Shape: sphere}
 
-				shapes = append(shapes, pbrt.NewSphereShape(xform, xform.Inverse(), false, radius))
+				primitives = append(primitives, geoPrim)
 			}
 		}
 	}
@@ -249,5 +241,22 @@ func main() {
 	span := opentracing.StartSpan("render")
 	defer span.Finish()
 
-	render(span, shapes)
+	agg := pbrt.NewSimpleAggregate(primitives)
+	scene := &pbrt.Scene{
+		Aggregate:  agg,
+		WorldBound: agg.WorldBound(),
+	}
+
+	//camXform := pbrt.Translate(new(pbrt.Vector3f))
+	//camAnimXform := pbrt.AnimatedTransform{
+	//	camXform, camXform,
+	//
+	//}
+	//
+	//camera := pbrt.NewCamera(camAnimXform, shutterOpen, shutterClose, film, nil)
+
+	//integrator := pbrt.NewDirectLightingIntegrator(pbrt.UniformSampleAll, 10, camera, sampler, pixelBounds)
+	//integrator.Render(scene)
+
+	render(span, scene)
 }

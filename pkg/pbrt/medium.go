@@ -1,9 +1,13 @@
 package pbrt
 
+type PhaseFunction interface {
+	P(wo, wi *Vector3f) float64
+	SampleP(wo, wi *Vector3f, u *Point2f) float64
+}
 
 type Mediumer interface {
-	Tr(r *Ray, s *Sampler) Spectrum
-	Sample(r *Ray, s *Sampler, arena *MemoryArena, mi *MediumInteraction) Spectrum
+	Tr(r *Ray, s Sampler) Spectrum
+	Sample(r *Ray, s Sampler, mi *MediumInteraction) Spectrum
 }
 
 // Named MediumInterface in PBRT book.  Avoiding confusing names

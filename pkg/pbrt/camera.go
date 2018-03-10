@@ -7,7 +7,7 @@ type Cameraer interface {
 type Camera struct {
 	cameraToWorld             *AnimatedTransform
 	shutterOpen, shutterClose float64
-	film                      *Film
+	Film                      *Film
 	medium                    Mediumer
 }
 
@@ -16,7 +16,7 @@ func NewCamera(cameraToWorld *AnimatedTransform, shutterOpen, shutterClose float
 		cameraToWorld: cameraToWorld,
 		shutterOpen:   shutterOpen,
 		shutterClose:  shutterClose,
-		film:          film,
+		Film:          film,
 		medium:        medium,
 	}
 }
@@ -65,13 +65,13 @@ func (c *Camera) PdfWe(r *Ray, pdfPos, pdfDir float64) {
 
 }
 
-func (c *Camera) SampleWi(ref Interactioner, u *Point2f, wi *Vector3f, pdf float64, pRaser *Point2f, vis *VisibilityTester) Spectrum {
+func (c *Camera) SampleWi(ref Interaction, u *Point2f, wi *Vector3f, pdf float64, pRaser *Point2f, vis *VisibilityTester) Spectrum {
 	return nil
 }
 
 type CameraSample struct {
-	pFilm Point2f
-	pLens Point2f
+	pFilm *Point2f
+	pLens *Point2f
 	time  float64
 }
 

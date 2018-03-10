@@ -8,6 +8,20 @@ import (
 var ErrSingularMatrix = errors.New("singular matrix in matrix invert")
 var ErrSameDirectionVectors = errors.New("singular matrix in matrix invert")
 
+func SolveLinearSystem2x2(A [2][2]float64, B [2]float64) (solvable bool, x0, x1 float64) {
+	det := A[0][0]*A[1][1] - A[0][1]*A[1][0]
+	if math.Abs(det) < 1e-10 {
+		return false, 0, 0
+	}
+	x0 = (A[1][1]*B[0] - A[0][1]*B[1]) / det
+	x1 = (A[0][0]*B[1] - A[1][0]*B[0]) / det
+	if math.IsNaN(x0) || math.IsNaN(x1) {
+		return false, 0, 0
+	}
+	return true, x0, x1
+
+}
+
 type Matrix4x4 [4][4]float64
 
 func NewMatrix4x4() Matrix4x4 {
@@ -234,8 +248,8 @@ func (t *Transform) TransformSurfaceInteraction(si *SurfaceInteraction) *Surface
 	ret.dvdx = si.dvdx
 	ret.dudy = si.dudy
 	ret.dvdy = si.dvdy
-	//ret.dpdx = t.TransformVector(si.dpdx)
-	//ret.dpdy = t.TransformVector(si.dpdy)
+	//ret.dpdx = Type.TransformVector(si.dpdx)
+	//ret.dpdy = Type.TransformVector(si.dpdy)
 	ret.bsdf = si.bsdf
 	ret.primitive = si.primitive
 	ret.shading.normal = FaceForward(ret.shading.normal, ret.normal)
@@ -245,12 +259,12 @@ func (t *Transform) TransformSurfaceInteraction(si *SurfaceInteraction) *Surface
 
 func (t *Transform) TransformBounds(b *Bounds3) *Bounds3 {
 	ret := &Bounds3{min: t.TransformPoint(b.min), max: t.TransformPoint(b.max)}
-	ret.Union(t.TransformPoint(&Point3f{b.max.X, b.min.Y, b.min.Z}))
-	ret.Union(t.TransformPoint(&Point3f{b.min.X, b.max.Y, b.min.Z}))
-	ret.Union(t.TransformPoint(&Point3f{b.min.X, b.min.Y, b.max.Z}))
-	ret.Union(t.TransformPoint(&Point3f{b.min.X, b.max.Y, b.max.Z}))
-	ret.Union(t.TransformPoint(&Point3f{b.max.X, b.max.Y, b.min.Z}))
-	ret.Union(t.TransformPoint(&Point3f{b.max.X, b.min.Y, b.max.Z}))
+	ret.UnionPoint(t.TransformPoint(&Point3f{b.max.X, b.min.Y, b.min.Z}))
+	ret.UnionPoint(t.TransformPoint(&Point3f{b.min.X, b.max.Y, b.min.Z}))
+	ret.UnionPoint(t.TransformPoint(&Point3f{b.min.X, b.min.Y, b.max.Z}))
+	ret.UnionPoint(t.TransformPoint(&Point3f{b.min.X, b.max.Y, b.max.Z}))
+	ret.UnionPoint(t.TransformPoint(&Point3f{b.max.X, b.max.Y, b.min.Z}))
+	ret.UnionPoint(t.TransformPoint(&Point3f{b.max.X, b.min.Y, b.max.Z}))
 	return ret
 }
 
