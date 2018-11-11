@@ -14,7 +14,7 @@ type Interaction interface {
 
 	GetPoint() *Point3f
 	//GetPointError() *Vector3f
-	//GetTime() float64
+	GetTime() float64
 	GetNormal() *Normal3f
 	//GetMedium(*Vector3f) *Mediumer
 	SetMediumAccessor(accessor *MediumAccessor)
@@ -44,6 +44,10 @@ func (i *interaction) GetPoint() *Point3f {
 
 func (i *interaction) GetNormal() *Normal3f {
 	return i.normal
+}
+
+func (i *interaction) GetTime() float64 {
+	return i.time
 }
 
 func (i *interaction) SetMediumAccessor(accessor *MediumAccessor) {
@@ -104,7 +108,7 @@ type SurfaceInteraction struct {
 	dndu, dndv             *Normal3f
 	shape                  Shaper
 	shading                *Shading
-	primitive              Primitive
+	primitive              Primitiver
 	bsdf                   *BSDF
 	bssrdf                 *BSSRDF
 	dpdx, dpdy             *Vector3f
@@ -117,23 +121,24 @@ type SurfaceInteraction struct {
 }
 
 func NewSurfaceInteraction(p *Point3f, pError *Vector3f, uv *Point2f, wo *Vector3f, dpdu, dpdv *Vector3f, dndu, dndv *Normal3f, time float64, shape Shaper, faceIndex int) *SurfaceInteraction {
-	normal := Normal3f(*dpdu.Cross(dpdv).Normalized())
+	normal := dpdu.Cross(dpdv).Normalized()
 
 	return &SurfaceInteraction{
 		interaction: &interaction{
 			point:  p,
 			time:   time,
 			wo:     wo,
-			normal: &normal,
+			normal: normal,
 		},
-		uv:    uv,
-		dpdu:  dpdu,
-		dpdv:  dpdv,
-		dndu:  dndu,
-		dndv:  dndv,
-		shape: shape,
+		//bssrdf: new(BSSRDF),
+		uv:     uv,
+		dpdu:   dpdu,
+		dpdv:   dpdv,
+		dndu:   dndu,
+		dndv:   dndv,
+		shape:  shape,
 		shading: &Shading{
-			normal: &normal,
+			normal: normal,
 			dpdu:   dpdu,
 			dpdv:   dpdv,
 			dndu:   dndu,

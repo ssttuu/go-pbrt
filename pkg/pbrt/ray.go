@@ -10,28 +10,27 @@ type Ray struct {
 
 func NewRay(origin *Point3f, direction *Vector3f, time float64) *Ray {
 	return &Ray{
-		origin: origin,
+		origin:    origin,
 		direction: direction,
-		tMax: Infinity,
-		time: time,
-		medium: nil,
+		tMax:      Infinity,
+		time:      time,
+		medium:    nil,
 	}
 }
 
 func NewRayWithMedium(origin *Point3f, direction *Vector3f, time float64, medium Mediumer) *Ray {
 	return &Ray{
-		origin: origin,
+		origin:    origin,
 		direction: direction,
-		tMax: Infinity,
-		time: time,
-		medium: medium,
+		tMax:      Infinity,
+		time:      time,
+		medium:    medium,
 	}
 }
 
 func (r *Ray) PointAt(t float64) *Point3f {
 	return r.origin.Mul(r.direction).MulScalar(t)
 }
-
 
 func OffsetRayOrigin(p *Point3f, pError *Vector3f, n *Normal3f, w *Vector3f) *Point3f {
 	d := n.Abs().Dot(pError)
@@ -61,15 +60,27 @@ type RayDifferential struct {
 	rxDirection, ryDirection *Vector3f
 }
 
+func NewRayDifferential() *RayDifferential {
+	return &RayDifferential{
+
+	}
+}
+
 func NewRayDifferentialFromRay(r *Ray) *RayDifferential {
 	return &RayDifferential{
-		Ray: r,
+		Ray:              r,
 		hasDifferentials: false,
+		rxOrigin:         new(Point3f),
+		ryOrigin:         new(Point3f),
+		rxDirection:      new(Vector3f),
+		ryDirection:      new(Vector3f),
 	}
 }
 
 func (rd *RayDifferential) ScaleDifferentials(s float64) {
-	rd.rxOrigin = rd.origin.Add(rd.rxOrigin.Sub(rd.origin).MulScalar(s))
+	subbin := rd.rxOrigin.Sub(rd.origin)
+	mulscalarin := subbin.MulScalar(s)
+	rd.rxOrigin = rd.origin.Add(mulscalarin)
 	rd.ryOrigin = rd.origin.Add(rd.ryOrigin.Sub(rd.origin).MulScalar(s))
 	rd.rxDirection = rd.direction.Add(rd.rxDirection.Sub(rd.direction).MulScalar(s))
 	rd.ryDirection = rd.direction.Add(rd.ryDirection.Sub(rd.direction).MulScalar(s))

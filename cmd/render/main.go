@@ -1,4 +1,4 @@
-package main
+package render
 
 import (
 	"github.com/stupschwartz/go-pbrt/pkg/pbrt"
@@ -97,7 +97,7 @@ func render(parentSpan opentracing.Span, scene *pbrt.Scene) {
 	)
 	defer renderSpan.Finish()
 
-	camera := NewCameraSettings(192 * 5, 108 * 5)
+	camera := NewCameraSettings(192*5, 108*5)
 	//camera := NewCameraSettings(1920, 1080)
 
 	imgPng := image.NewNRGBA(image.Rect(0, 0, camera.Width, camera.Height))
@@ -211,27 +211,33 @@ func main() {
 
 	// START
 
-	var primitives []pbrt.Primitive
+	var primitives []pbrt.Primitiver
 
-	n := 9
+	n := 8
 
-	for i := 0; i < n; i++ {
-		for j := 0; j < n; j++ {
-			for k := 0; k < n; k++ {
+	kd := pbrt.NewConstantSpectrumTexture(pbrt.NewSpectrum(0.5))
+	sigma := pbrt.NewConstantFloatTexture(0.0)
+	material := pbrt.NewMatteMaterial(kd, sigma, nil)
+
+	for i := 0; i <= n; i++ {
+		for j := 0; j <= n; j++ {
+			for k := 0; k <= n; k++ {
 				x := (float64(i) / float64(n) * 200) - 100
 				y := (float64(j) / float64(n) * 200) - 100
 				z := (float64(k) / float64(n) * 200) - 100
-				radius := 1.0
-				if x > 0 {
-					radius = 2.0
-				}
-				if z < 0 {
-					radius *= 2
-				}
+				radius := 4.0
+				//if x > 0 {
+				//	radius = 1.0
+				//}
+				//if z < 0 {
+				//	radius *= 2
+				//}
 
 				xform := pbrt.Translate(&pbrt.Vector3f{x, y, z})
-				sphere := pbrt.NewSphereShape(xform, xform.Inverse(), false, radius)
-				geoPrim := &pbrt.GeometricPrimitive{Shape: sphere}
+				sphere := pbrt.NewSphereShape(
+					fmt.Sprintf("Sphere: %v, %v, %v - MatteMaterial", x, y, z),
+					xform, xform.Inverse(), false, radius)
+				geoPrim := pbrt.NewGeometricPrimitive(sphere, material)
 
 				primitives = append(primitives, geoPrim)
 			}
@@ -242,21 +248,39 @@ func main() {
 	defer span.Finish()
 
 	agg := pbrt.NewSimpleAggregate(primitives)
+
+	//areaLightXform := pbrt.Translate(&pbrt.Vector3f{0, 0, 0})
+	//areaLightShape := pbrt.NewSphereShape(areaLightXform, areaLightXform.Inverse(), false, 10.0)
+	//areaLight := pbrt.NewDiffuseAreaLight(areaLightXform, nil, pbrt.NewSpectrum(100000.0), 10, areaLightShape, false)
+
+	pointLight := pbrt.NewPointLight(pbrt.Translate(&pbrt.Vector3f{-20, 0, 0}), nil, pbrt.NewSpectrum(pbrt.Pi * 100000))
+
+	lights := []pbrt.Lighter{
+		pointLight,
+		//areaLight,
+	}
+
 	scene := &pbrt.Scene{
 		Aggregate:  agg,
+		Lights: lights,
 		WorldBound: agg.WorldBound(),
 	}
 
-	//camXform := pbrt.Translate(new(pbrt.Vector3f))
-	//camAnimXform := pbrt.AnimatedTransform{
-	//	camXform, camXform,
-	//
-	//}
-	//
-	//camera := pbrt.NewCamera(camAnimXform, shutterOpen, shutterClose, film, nil)
+	camXform := pbrt.Translate(&pbrt.Vector3f{10, 10, 0}).Mul(pbrt.RotateY(-45))
+	camAnimXform := pbrt.NewAnimatedTransform(camXform, camXform, 0, 1)
 
-	//integrator := pbrt.NewDirectLightingIntegrator(pbrt.UniformSampleAll, 10, camera, sampler, pixelBounds)
-	//integrator.Render(scene)
+	shutterOpen, shutterClose := 0.0, 1.0
+	div := int64(1)
+	resolution := &pbrt.Point2i{1920 / div, 1080 / div}
+	cropBounds := &pbrt.Bounds2f{Min: &pbrt.Point2f{0, 0}, Max: &pbrt.Point2f{1, 1}}
+	boxFilter := pbrt.NewBoxFilter(&pbrt.Point2f{1, 1})
+	film := pbrt.NewFilm("image-new.png", resolution, cropBounds, boxFilter, 100.0, 1.0, 1.0)
+	camera := pbrt.NewPerspectiveCamera(camAnimXform, cropBounds, shutterOpen, shutterClose, 0, 20, 90.0, film, nil)
 
-	render(span, scene)
+	pixelBounds := &pbrt.Bounds2i{&pbrt.Point2i{0, 0}, resolution}
+	sampler := pbrt.NewRandomSampler(10, 4)
+	integrator := pbrt.NewDirectLightingIntegrator(pbrt.UniformSampleAll, 10, camera, sampler, pixelBounds)
+	pbrt.Render(integrator, scene)
+
+	//render(span, scene)
 }

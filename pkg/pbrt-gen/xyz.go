@@ -46,7 +46,7 @@ func (xy *XYGenericType) Length() GenericType {
 }
 
 func (xy *XYGenericType) String() string {
-	return fmt.Sprintf("XYGenericType(%f.3, %f.3)", xy.X, xy.Y)
+	return fmt.Sprintf("XYGenericType(%v, %v)", xy.X, xy.Y)
 }
 
 func (xy *XYGenericType) Add(other *XYGenericType) *XYGenericType {
@@ -157,7 +157,7 @@ func (xyz *XYZGenericType) Length() GenericType {
 }
 
 func (xyz *XYZGenericType) String() string {
-	return fmt.Sprintf("XYZGenericType(%f.3, %f.3, %f.3)", xyz.X, xyz.Y, xyz.Z)
+	return fmt.Sprintf("XYZGenericType(%v, %v, %v)", xyz.X, xyz.Y, xyz.Z)
 }
 
 func (xyz *XYZGenericType) Add(other *XYZGenericType) *XYZGenericType {
@@ -253,7 +253,11 @@ func (xyz *XYZGenericType) AbsDot(other *XYZGenericType) GenericType {
 }
 
 func (xyz *XYZGenericType) Distance(other *XYZGenericType) GenericType {
-	return GenericType(math.Sqrt(float64(xyz.Dot(other))))
+	return GenericType(math.Sqrt(xyz.DistanceSquared(other)))
+}
+
+func (xyz *XYZGenericType) DistanceSquared(other *XYZGenericType) float64 {
+	return math.Pow(float64(other.X-xyz.X), 2) + math.Pow(float64(other.Y-xyz.Y), 2) + math.Pow(float64(other.Z-xyz.Z), 2)
 }
 
 func (xyz *XYZGenericType) Cross(other *XYZGenericType) *XYZGenericType {

@@ -5,6 +5,7 @@ import (
 )
 
 type Shaper interface {
+	GetName() string
 	ObjectBound() *Bounds3
 	WorldBound() *Bounds3
 	Intersect(r *Ray, testAlphaTexture bool) (intersects bool, tHit float64, si *SurfaceInteraction)
@@ -18,9 +19,15 @@ type Shaper interface {
 }
 
 type Shape struct {
+	name string
+
 	objectToWorld, worldToObject *Transform
 	reverseOrientation           bool
 	transformSwapsHandedness     bool
+}
+
+func (s *Shape) GetName() string {
+	return s.name
 }
 
 func (s *Shape) ObjectBound() *Bounds3 {

@@ -3,10 +3,15 @@ package pbrt
 import (
 	"math"
 	"fmt"
+	"log"
 )
 
 type Integrator interface {
-	Render(scene *Scene)
+	GetSampler() Sampler
+	GetCamera() Cameraer
+
+	Preprocess(scene *Scene, sampler Sampler)
+	//Render(scene *Scene)
 	Li(ray *RayDifferential, scene *Scene, sampler Sampler, depth int) Spectrum
 	SpecularReflect(ray *RayDifferential, si *SurfaceInteraction, scene *Scene, sampler Sampler, depth int) Spectrum
 	SpecularTransmit(ray *RayDifferential, si *SurfaceInteraction, scene *Scene, sampler Sampler, depth int) Spectrum
@@ -14,9 +19,9 @@ type Integrator interface {
 
 func UniformSampleAllLights(it Interaction, scene *Scene, sampler Sampler, nLightSamples []int, handleMedia bool) Spectrum {
 	L := NewSpectrum(0)
-	for j := 0; j < len(scene.Lights); j++ {
+	for j, light := range scene.Lights {
 		// accumulate contribution of jth light to L
-		light := scene.Lights[j]
+		//light := scene.Lights[j]
 		nSamples := nLightSamples[j]
 		uLightSlice := sampler.Get2DArray(nSamples)
 		uScatteringSlice := sampler.Get2DArray(nSamples)
@@ -73,22 +78,29 @@ func EstimateDirect(it Interaction, uScattering *Point2f, light Lighter, uLight 
 
 	scatteringPdf := 0.0
 	Ld := NewSpectrum(0)
+	fmt.Printf("%+v\n", uLight)
 	Li, wi, lightPdf, visibility := light.SampleLi(it, uLight)
-
+	if lightPdf > 0 || !Li.IsBlack() {
+		fmt.Printf("%+v, %+v, %+v, %+v \n", Li, wi, lightPdf, visibility)
+	}
+	return Li
 	if lightPdf > 0 && !Li.IsBlack() {
 		// compute BSDF for light sampling strategy
 		var f Spectrum
 
 		switch intr := it.(type) {
-		case SurfaceInteraction:
+		case *SurfaceInteraction:
+			fmt.Printf("SurfaceInteraction: %+v %+v\n", intr.wo, wi)
 			f = intr.bsdf.F(intr.wo, wi, bsdfFlags).MulScalar(wi.Dot(intr.shading.normal))
 			scatteringPdf = intr.bsdf.Pdf(intr.wo, wi, bsdfFlags)
-		case MediumInteraction:
+		case *MediumInteraction:
+			fmt.Printf("MediumInteraction: %+v\n", intr)
 			p := intr.phase.P(intr.wo, wi)
 			f = NewSpectrum(p)
 			scatteringPdf = p
 		default:
 			// TODO: return error
+			log.Panicf("UnknownInteraction: %+v\n", intr)
 		}
 
 		if !f.IsBlack() {
@@ -175,12 +187,12 @@ func EstimateDirect(it Interaction, uScattering *Point2f, light Lighter, uLight 
 }
 
 type SamplerIntegrator struct {
-	camera      *Camera
+	camera      Cameraer
 	sampler     Sampler
 	pixelBounds *Bounds2i
 }
 
-func NewSamplerIntegrator(camera *Camera, sampler Sampler, pixelBounds *Bounds2i) *SamplerIntegrator {
+func NewSamplerIntegrator(camera Cameraer, sampler Sampler, pixelBounds *Bounds2i) *SamplerIntegrator {
 	return &SamplerIntegrator{
 		camera:      camera,
 		sampler:     sampler,
@@ -188,16 +200,26 @@ func NewSamplerIntegrator(camera *Camera, sampler Sampler, pixelBounds *Bounds2i
 	}
 }
 
+func (s *SamplerIntegrator) GetSampler() Sampler {
+	return s.sampler
+}
+
+func (s *SamplerIntegrator) GetCamera() Cameraer {
+	return s.camera
+}
+
 func (s *SamplerIntegrator) Preprocess(scene *Scene, sampler Sampler) {
 
 }
 
-func (s *SamplerIntegrator) Render(scene *Scene) {
-	s.Preprocess(scene, s.sampler)
+func Render(s Integrator, scene *Scene) {
+	s.Preprocess(scene, s.GetSampler())
 	// render image tiles in parallel
+	camera := s.GetCamera()
+	film := camera.GetFilm()
 
 	// compute number of tiles to use for parallel computing
-	sampleBounds := s.camera.Film.GetSampleBounds()
+	sampleBounds := camera.GetFilm().GetSampleBounds()
 	sampleExtent := sampleBounds.Diagonal()
 	var tileSize int64 = 16
 	nTiles := &Point2i{(sampleExtent.X + tileSize - 1) / tileSize, (sampleExtent.Y + tileSize - 1) / tileSize}
@@ -209,58 +231,72 @@ func (s *SamplerIntegrator) Render(scene *Scene) {
 
 			// get sampler instance for tile
 			seed := uint64(tile.Y*nTiles.X + tile.X)
-			tileSampler := s.sampler.Clone(seed)
+			tileSampler := s.GetSampler().Clone(seed)
 
 			// compute sample bounds for tile
-			x0 := sampleBounds.min.X + tile.X*tileSize
-			x1 := int64(math.Min(float64(x0+tileSize), float64(sampleBounds.max.X)))
-			y0 := sampleBounds.min.Y + tile.Y*tileSize
-			y1 := int64(math.Min(float64(y0+tileSize), float64(sampleBounds.max.Y)))
+			//fmt.Println(sampleBounds, tileSize)
+			x0 := sampleBounds.Min.X + tile.X*tileSize
+			x1 := int64(math.Min(float64(x0+tileSize), float64(sampleBounds.Max.X)))
+			y0 := sampleBounds.Min.Y + tile.Y*tileSize
+			y1 := int64(math.Min(float64(y0+tileSize), float64(sampleBounds.Max.Y)))
 			tileBounds := &Bounds2i{&Point2i{x0, y0}, &Point2i{x1, y1}}
 
 			// get film tile
-			filmTile := s.camera.Film.GetFilmTile(tileBounds)
+			//filmTile := camera.GetFilm().GetFilmTile(tileBounds)
 
-			for pixelY := tileBounds.min.Y; pixelY < tileBounds.max.Y; pixelY++ {
-				for pixelX := tileBounds.min.X; pixelX < tileBounds.max.X; pixelX++ {
-					pixel := &Point2i{pixelX, pixelY}
-					tileSampler.StartPixel(pixel)
+			for pixelY := tileBounds.Min.Y; pixelY < tileBounds.Max.Y; pixelY++ {
+				for pixelX := tileBounds.Min.X; pixelX < tileBounds.Max.X; pixelX++ {
+					pixelPos := &Point2i{pixelX, pixelY}
+					tileSampler.StartPixel(pixelPos)
 
-					for tileSampler.StartNextSample() {
-						// initialize CameraSample for current sample
-						cameraSample := tileSampler.GetCameraSample(pixel)
+					//for tileSampler.StartNextSample() {
+					// initialize CameraSample for current sample
+					cameraSample := tileSampler.GetCameraSample(pixelPos)
 
-						// generate camera ray for current sample
+					// generate camera ray for current sample
 
-						rayWeight, rd := s.camera.GenerateRayDifferential(cameraSample)
-						rd.ScaleDifferentials(1.0 / math.Sqrt(float64(tileSampler.GetSamplesPerPixel())))
+					rayWeight, rd := camera.GenerateRayDifferential(cameraSample)
+					rd.ScaleDifferentials(1.0 / math.Sqrt(float64(tileSampler.GetSamplesPerPixel())))
+					//fmt.Printf("%+v %+v %+v\n", rayWeight, rd.origin, rd.direction)
 
-						// evaluate radiance along camera ray
-						L := NewSpectrum(0)
-						if rayWeight > 0 {
-							L = s.Li(rd, scene, tileSampler, 0)
-						}
-
-						// TODO: add errors and return them
-						if L.HasNaNs() {
-							L = NewSpectrum(0)
-						} else if L.Y() < -1e-5 {
-							L = NewSpectrum(0)
-						} else if math.IsInf(L.Y(), 1) {
-							L = NewSpectrum(0)
-						}
-
-						// add camera ray's contribution to image
-						filmTile.AddSample(cameraSample.pFilm, L, rayWeight)
-
+					// evaluate radiance along camera ray
+					L := NewSpectrum(0)
+					if rayWeight > 0 {
+						L = s.Li(rd, scene, tileSampler, 0)
 					}
 
+					// TODO: add errors and return them
+					if L.HasNaNs() {
+						L = NewSpectrum(0.1)
+					} else if L.Y() < -1e-5 {
+						L = NewSpectrum(0.5)
+					} else if math.IsInf(L.Y(), 1) {
+						L = NewSpectrum(1.0)
+					}
+
+					// add camera ray's contribution to image
+					//filmTile.AddSample(cameraSample.pFilm, L, rayWeight)
+					px := film.getPixel(pixelPos)
+					px.value = [3]float64{
+						L.Index(0),
+						L.Index(1),
+						L.Index(2),
+					}
+
+					if !L.IsBlack() {
+						fmt.Printf("Not black: %+v\n", L)
+						//fmt.Printf("%+v %+v %+v\n", pixelPos, cameraSample.pFilm, film.getPixel(pixelPos))
+					}
+					//}
+
 					// merge image tile into film
-					s.camera.Film.MergeFilmTile(filmTile)
+					//camera.GetFilm().MergeFilmTile(filmTile)
 				}
 			}
 		}
 	}
+
+	camera.GetFilm().WriteImage(1.0)
 }
 
 func (s *SamplerIntegrator) Li(ray *RayDifferential, scene *Scene, sampler Sampler, depth int) Spectrum {
@@ -289,10 +325,10 @@ func (s *SamplerIntegrator) SpecularReflect(ray *RayDifferential, si *SurfaceInt
 			dwody := ray.ryDirection.MulScalar(-1).Sub(wo)
 			dDNdx := dwodx.Dot(ns) + wo.Dot(dndx)
 			dDNdy := dwody.Dot(ns) + wo.Dot(dndy)
-			rd.rxDirection = wi.Sub(dwodx).Add( dndx.MulScalar(wo.Dot(ns)).Add(ns.MulScalar(dDNdx)).MulScalar(2.0) )
-			rd.ryDirection = wi.Sub(dwody).Add( dndy.MulScalar(wo.Dot(ns)).Add(ns.MulScalar(dDNdy)).MulScalar(2.0) )
+			rd.rxDirection = wi.Sub(dwodx).Add(dndx.MulScalar(wo.Dot(ns)).Add(ns.MulScalar(dDNdx)).MulScalar(2.0))
+			rd.ryDirection = wi.Sub(dwody).Add(dndy.MulScalar(wo.Dot(ns)).Add(ns.MulScalar(dDNdy)).MulScalar(2.0))
 		}
-		return f.Mul(s.Li(rd, scene, sampler, depth + 1)).MulScalar(wi.AbsDot(ns) / pdf)
+		return f.Mul(s.Li(rd, scene, sampler, depth+1)).MulScalar(wi.AbsDot(ns) / pdf)
 	}
 
 	return NewSpectrum(0)
@@ -300,7 +336,7 @@ func (s *SamplerIntegrator) SpecularReflect(ray *RayDifferential, si *SurfaceInt
 
 func (s *SamplerIntegrator) SpecularTransmit(ray *RayDifferential, si *SurfaceInteraction, scene *Scene, sampler Sampler, depth int) Spectrum {
 	wo := si.wo
-	f, wi, pdf, _ := si.bsdf.SampleF(wo, sampler.Get2D(), BxDFType(BSDFTransmission | BSDFSpecular))
+	f, wi, pdf, _ := si.bsdf.SampleF(wo, sampler.Get2D(), BxDFType(BSDFTransmission|BSDFSpecular))
 
 	p := si.point
 	ns := si.shading.normal
@@ -326,14 +362,14 @@ func (s *SamplerIntegrator) SpecularTransmit(ray *RayDifferential, si *SurfaceIn
 			dDNdx := dwodx.Dot(ns) + wo.Dot(dndx)
 			dDNdy := dwody.Dot(ns) + wo.Dot(dndy)
 
-			mu := eta * w.Dot(ns) - wi.Dot(ns)
-			dmudx := (eta - (eta * eta * w.Dot(ns)) / wi.Dot(ns)) * dDNdx
-			dmudy := (eta - (eta * eta * w.Dot(ns)) / wi.Dot(ns)) * dDNdy
+			mu := eta*w.Dot(ns) - wi.Dot(ns)
+			dmudx := (eta - (eta*eta*w.Dot(ns))/wi.Dot(ns)) * dDNdx
+			dmudy := (eta - (eta*eta*w.Dot(ns))/wi.Dot(ns)) * dDNdy
 
 			rd.rxDirection = wi.Add(dwodx.MulScalar(eta)).Sub(dndx.MulScalar(mu).Add(ns.MulScalar(dmudx)))
 			rd.ryDirection = wi.Add(dwody.MulScalar(eta)).Sub(dndy.MulScalar(mu).Add(ns.MulScalar(dmudy)))
 		}
-		L = f.Mul(s.Li(rd, scene, sampler, depth + 1)).MulScalar(wi.AbsDot(ns) / pdf)
+		L = f.Mul(s.Li(rd, scene, sampler, depth+1)).MulScalar(wi.AbsDot(ns) / pdf)
 	}
 
 	return L
@@ -356,7 +392,7 @@ type DirectLightingIntegrator struct {
 	nLightSamples []int
 }
 
-func NewDirectLightingIntegrator(strategy LightStrategy, maxDepth int, camera *Camera, sampler Sampler, pixelBounds *Bounds2i) *DirectLightingIntegrator {
+func NewDirectLightingIntegrator(strategy LightStrategy, maxDepth int, camera Cameraer, sampler Sampler, pixelBounds *Bounds2i) *DirectLightingIntegrator {
 	return &DirectLightingIntegrator{
 		SamplerIntegrator: NewSamplerIntegrator(camera, sampler, pixelBounds),
 		strategy:          strategy,
@@ -385,15 +421,20 @@ func (dli *DirectLightingIntegrator) Li(ray *RayDifferential, scene *Scene, samp
 	L := NewSpectrum(0)
 
 	// find closest ray intersection or return background radiance
+	//fmt.Println("Ray Origin, Direction:", ray.Ray.origin, ray.Ray.direction)
 	intersects, si := scene.Intersect(ray.Ray)
 	if !intersects {
+		//fmt.Println("Does not intersect")
 		for i := 0; i < len(scene.Lights); i++ {
 			L.AddAssign(scene.Lights[i].Le(NewRayDifferentialFromRay(ray.Ray)))
 		}
 		return L
 	}
 
+	//fmt.Printf("Intersects with %+v | %+v\n", si.shape.WorldBound(), si.point)
+
 	// compute scattering function for surface interaction
+	// TODO
 	si.ComputeScatteringFunctions(ray, false, Radiance)
 	if si.bsdf == nil {
 		return dli.Li(NewRayDifferentialFromRay(si.SpawnRay(ray.direction)), scene, sampler, depth)
@@ -401,6 +442,7 @@ func (dli *DirectLightingIntegrator) Li(ray *RayDifferential, scene *Scene, samp
 
 	//compute emitted light if ray hit an area light source
 	L.AddAssign(si.Le(si.wo))
+
 	if len(scene.Lights) > 0 {
 		// compute direct lighting for DirectLightingIntegrator integrator
 		if dli.strategy == UniformSampleAll {
@@ -411,8 +453,8 @@ func (dli *DirectLightingIntegrator) Li(ray *RayDifferential, scene *Scene, samp
 	}
 	if depth+1 < dli.maxDepth {
 		// trace rays for specular reflection and refraction
-		L.AddAssign(dli.SpecularReflect(ray, si, scene, sampler, depth))
-		L.AddAssign(dli.SpecularTransmit(ray, si, scene, sampler, depth))
+		L.AddAssign(dli.SpecularReflect(ray, si, scene, sampler, depth+1))
+		L.AddAssign(dli.SpecularTransmit(ray, si, scene, sampler, depth+1))
 	}
 
 	return L
