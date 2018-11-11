@@ -65,13 +65,13 @@ func (m *Matrix4x4) Transpose() *Matrix4x4 {
 }
 
 func (m *Matrix4x4) Mul(other *Matrix4x4) *Matrix4x4 {
-	var r *Matrix4x4
+	var r Matrix4x4
 	for i := 0; i < 4; i++ {
 		for j := 0; j < 4; j++ {
 			r[i][j] = m[i][0]*other[0][j] + m[i][1]*other[1][j] + m[i][2]*other[2][j] + m[i][3]*m[3][j]
 		}
 	}
-	return r
+	return &r
 }
 
 func (m *Matrix4x4) Inverse() (*Matrix4x4, error) {
@@ -196,11 +196,14 @@ func (t *Transform) TransformPoint(p *Point3f) *Point3f {
 	wp := t.matrix[3][0]*p.X + t.matrix[3][1]*p.Y + t.matrix[3][2]*p.Z + t.matrix[3][3]
 
 	pTransformed := &Point3f{xp, yp, zp}
+
 	if wp == 1.0 {
 		return pTransformed
 	}
 
-	return pTransformed.DivScalar(wp)
+	return pTransformed
+	// TODO
+	//return pTransformed.DivScalar(wp)
 }
 
 func (t *Transform) TransformVector(v *Vector3f) *Vector3f {
@@ -258,13 +261,13 @@ func (t *Transform) TransformSurfaceInteraction(si *SurfaceInteraction) *Surface
 }
 
 func (t *Transform) TransformBounds(b *Bounds3) *Bounds3 {
-	ret := &Bounds3{min: t.TransformPoint(b.min), max: t.TransformPoint(b.max)}
-	ret.UnionPoint(t.TransformPoint(&Point3f{b.max.X, b.min.Y, b.min.Z}))
-	ret.UnionPoint(t.TransformPoint(&Point3f{b.min.X, b.max.Y, b.min.Z}))
-	ret.UnionPoint(t.TransformPoint(&Point3f{b.min.X, b.min.Y, b.max.Z}))
-	ret.UnionPoint(t.TransformPoint(&Point3f{b.min.X, b.max.Y, b.max.Z}))
-	ret.UnionPoint(t.TransformPoint(&Point3f{b.max.X, b.max.Y, b.min.Z}))
-	ret.UnionPoint(t.TransformPoint(&Point3f{b.max.X, b.min.Y, b.max.Z}))
+	ret := &Bounds3{Min: t.TransformPoint(b.Min), Max: t.TransformPoint(b.Max)}
+	ret.UnionPoint(t.TransformPoint(&Point3f{b.Max.X, b.Min.Y, b.Min.Z}))
+	ret.UnionPoint(t.TransformPoint(&Point3f{b.Min.X, b.Max.Y, b.Min.Z}))
+	ret.UnionPoint(t.TransformPoint(&Point3f{b.Min.X, b.Min.Y, b.Max.Z}))
+	ret.UnionPoint(t.TransformPoint(&Point3f{b.Min.X, b.Max.Y, b.Max.Z}))
+	ret.UnionPoint(t.TransformPoint(&Point3f{b.Max.X, b.Max.Y, b.Min.Z}))
+	ret.UnionPoint(t.TransformPoint(&Point3f{b.Max.X, b.Min.Y, b.Max.Z}))
 	return ret
 }
 
@@ -414,7 +417,7 @@ func Orthographic(zNear, zFar float64) *Transform {
 }
 
 func Perspective(fov, n, f float64) *Transform {
-	persp := Matrix4x4{
+	persp := &Matrix4x4{
 		{1, 0, 0, 0},
 		{0, 1, 0, 0},
 		{0, 0, f / (f - n), -f * n / (f - n)},
@@ -422,7 +425,7 @@ func Perspective(fov, n, f float64) *Transform {
 	}
 
 	invTanAng := 1.0 / math.Tan(Radians(fov)/2)
-	return Scale(invTanAng, invTanAng, 1).Mul(NewTransform(&persp))
+	return Scale(invTanAng, invTanAng, 1).Mul(NewTransform(persp))
 }
 
 type DerivativeTerm struct {
@@ -442,6 +445,39 @@ type AnimatedTransform struct {
 	startS, endS                 *Matrix4x4
 	hasRotation                  bool
 	c1, c2, c3, c4, c5           [3]*DerivativeTerm
+}
+
+func NewAnimatedTransform(start, end *Transform, startTime, endTime float64) *AnimatedTransform {
+	actuallyAnimated := start != end
+	at := &AnimatedTransform{
+		startTransform:   start,
+		endTransform:     end,
+		startTime:        startTime,
+		endTime:          endTime,
+		actuallyAnimated: actuallyAnimated,
+	}
+
+	if !actuallyAnimated {
+		return at
+	}
+
+	// TODO
+	//at.startT, at.startR, at.startS = Decompose(start.matrix)
+	//at.endT, at.endR, at.endS = Decompose(end.matrix)
+
+	// Flip R if needed to select shortest path
+	if at.startR.Dot(at.endR) < 0 {
+		at.endR = at.endR.MulScalar(-1)
+	}
+
+	at.hasRotation = at.startR.Dot(at.endR) < 0.9995
+
+	// compute terms of motion derivative function
+	if at.hasRotation {
+		// TODO
+	}
+
+	return at
 }
 
 func (at *AnimatedTransform) Interpolate(time float64) *Transform {
@@ -470,4 +506,34 @@ func (at *AnimatedTransform) Interpolate(time float64) *Transform {
 	// compute interpolated matrix as product of interpolated components
 	return Translate(trans).Mul(rotate.ToTransform()).Mul(NewTransform(scale))
 
+}
+
+func (at *AnimatedTransform) TransformRay(r *Ray) *Ray {
+	if !at.actuallyAnimated || r.time <= at.startTime {
+		return at.startTransform.TransformRay(r)
+	} else if r.time >= at.endTime {
+		return at.endTransform.TransformRay(r)
+	}
+
+	return at.Interpolate(r.time).TransformRay(r)
+}
+
+func (at *AnimatedTransform) TransformPointAtTime(p *Point3f, time float64) *Point3f {
+	if !at.actuallyAnimated || time <= at.startTime {
+		return at.startTransform.TransformPoint(p)
+	} else if time >= at.endTime {
+		return at.endTransform.TransformPoint(p)
+	}
+
+	return at.Interpolate(time).TransformPoint(p)
+}
+
+func (at *AnimatedTransform) TransformVectorAtTime(v *Vector3f, time float64) *Vector3f {
+	if !at.actuallyAnimated || time <= at.startTime {
+		return at.startTransform.TransformPoint(v)
+	} else if time >= at.endTime {
+		return at.endTransform.TransformPoint(v)
+	}
+
+	return at.Interpolate(time).TransformPoint(v)
 }

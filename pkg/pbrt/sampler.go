@@ -14,7 +14,6 @@ type Sampler interface {
 	Request2DArray(n int)
 }
 
-
 type sampler struct {
 	SamplesPerPixel int64
 
@@ -28,8 +27,20 @@ type sampler struct {
 }
 
 func NewSampler(samplesPerPixel int64) *sampler {
+	sampleArray1D := make([][]float64, samplesPerPixel)
+	for i := int64(0); i < samplesPerPixel; i++ {
+		sampleArray1D[i] = make([]float64, samplesPerPixel)
+	}
+
+	sampleArray2D := make([][]*Point2f, samplesPerPixel)
+	for i := int64(0); i < samplesPerPixel; i++ {
+		sampleArray2D[i] = make([]*Point2f, samplesPerPixel)
+	}
+
 	return &sampler{
 		SamplesPerPixel: samplesPerPixel,
+		sampleArray1D:   sampleArray1D,
+		sampleArray2D:   sampleArray2D,
 	}
 }
 
@@ -189,6 +200,14 @@ func (s *RandomSampler) Get2D() *Point2f {
 	return &Point2f{s.rng.UniformFloat(), s.rng.UniformFloat()}
 }
 
+func (s *RandomSampler) GetCameraSample(pRaster *Point2i) *CameraSample {
+	return &CameraSample{
+		pFilm: NewPoint2fFromPoint2i(pRaster).Add(s.Get2D()),
+		time:  s.Get1D(),
+		pLens: s.Get2D(),
+	}
+}
+
 func (s *RandomSampler) Clone(seed uint64) Sampler {
 	rs := &RandomSampler{
 		sampler: (*sampler)(s.sampler),
@@ -200,13 +219,13 @@ func (s *RandomSampler) Clone(seed uint64) Sampler {
 
 func (s *RandomSampler) StartPixel(p *Point2i) {
 	for i := 0; i < len(s.sampleArray1D); i++ {
-		for j := 0; j < len(s.sampleArray1D); j++ {
+		for j := 0; j < len(s.sampleArray1D[i]); j++ {
 			s.sampleArray1D[i][j] = s.rng.UniformFloat()
 		}
 	}
 
 	for i := 0; i < len(s.sampleArray2D); i++ {
-		for j := 0; j < len(s.sampleArray2D); j++ {
+		for j := 0; j < len(s.sampleArray2D[i]); j++ {
 			s.sampleArray2D[i][j] = &Point2f{s.rng.UniformFloat(), s.rng.UniformFloat()}
 		}
 	}

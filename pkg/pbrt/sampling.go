@@ -73,6 +73,10 @@ func UniformSampleSphere(u *Point2f) *Vector3f {
 	return &Vector3f{r * math.Cos(phi), r * math.Sin(phi), z}
 }
 
+func UniformSpherePdf() float64 {
+	return Inv4Pi
+}
+
 func UniformConePdf(cosThetaMax float64) float64 {
 	return 1.0 / (2.0 * math.Pi * (1.0 - cosThetaMax))
 }

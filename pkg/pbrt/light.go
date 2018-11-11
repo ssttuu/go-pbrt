@@ -1,6 +1,9 @@
 package pbrt
 
-import "math"
+import (
+	"math"
+	"fmt"
+)
 
 type LightFlag int
 
@@ -18,14 +21,14 @@ func IsDeltaLight(flags LightFlag) bool {
 type Lighter interface {
 	GetFlags() LightFlag
 	GetSamples() int
+	Preprocess()
 
 	SampleLi(ref Interaction, u *Point2f) (s Spectrum, wi *Vector3f, pdf float64, vis *VisibilityTester)
 	Power() Spectrum
-	Preprocess()
 	Le(r *RayDifferential) Spectrum
 	PdfLi(ref Interaction) (float64, *Vector3f)
-	SampleLe(u1, u2 *Point2f, time float64, r *Ray, nLight *Normal3f, pdfPos, pdfDir float64) Spectrum
-	PdfLe(r *Ray, nLight *Normal3f, pdfPos, pdfDir float64)
+	SampleLe(u1, u2 *Point2f, time float64) (s Spectrum, r *Ray, nLight *Normal3f, pdfPos, pdfDir float64)
+	PdfLe(r *Ray, nLight *Normal3f) (pdfPos, pdfDir float64)
 }
 
 type light struct {
@@ -55,6 +58,56 @@ func (l *light) GetSamples() int {
 
 func (l *light) Le(r *RayDifferential) Spectrum {
 	return NewSpectrum(0)
+}
+
+func (l *light) Preprocess() {
+
+}
+
+type PointLight struct {
+	*light
+
+	pLight *Point3f
+	i      Spectrum
+}
+
+func NewPointLight(lightToWorld *Transform, mediumAccessor *MediumAccessor, i Spectrum) Lighter {
+	return &PointLight{
+		light:  NewLight(LightFlagDeltaPosition, lightToWorld, mediumAccessor, 1),
+		pLight: lightToWorld.TransformPoint(&Point3f{0, 0, 0}),
+		i:      i,
+	}
+}
+
+func (l *PointLight) SampleLi(ref Interaction, u *Point2f) (s Spectrum, wi *Vector3f, pdf float64, vis *VisibilityTester) {
+	wi = l.pLight.Sub(ref.GetPoint())
+	pdf = 1.0
+	vis = NewVisibilityTester(ref, NewInteraction(l.pLight, nil, nil, ref.GetTime(), l.MediumAccessor))
+	return l.i.DivScalar(l.pLight.DistanceSquared(ref.GetPoint())), wi, pdf, vis
+}
+
+func (l *PointLight) Power() Spectrum {
+	return l.i.MulScalar(4 * Pi)
+}
+
+func (l *PointLight) Le(r *RayDifferential) Spectrum {
+	return NewSpectrum(0.0)
+}
+
+func (l *PointLight) PdfLi(ref Interaction) (float64, *Vector3f) {
+	return 0, nil
+}
+
+func (l *PointLight) SampleLe(u1, u2 *Point2f, time float64) (s Spectrum, r *Ray, nLight *Normal3f, pdfPos, pdfDir float64) {
+	r = NewRayWithMedium(l.pLight, UniformSampleSphere(u1), time, l.MediumAccessor.Inside)
+	nLight = r.direction
+	pdfPos = 1
+	pdfDir = UniformSpherePdf()
+	return l.i, r, nLight, pdfPos, pdfDir
+}
+
+func (l *PointLight) PdfLe(r *Ray, nLight *Normal3f) (pdfPos, pdfDir float64) {
+	return 0, UniformSpherePdf()
 }
 
 type VisibilityTester struct {
@@ -151,6 +204,7 @@ func (l *DiffuseAreaLight) L(intr Interaction, w *Vector3f) Spectrum {
 
 func (l *DiffuseAreaLight) SampleLi(ref Interaction, u *Point2f) (s Spectrum, wi *Vector3f, pdf float64, vis *VisibilityTester) {
 	pShape, pdf := l.shape.SampleAtInteraction(ref, u)
+	fmt.Printf("%+v, %+v \n", pShape, pdf)
 	pShape.SetMediumAccessor(l.MediumAccessor)
 	if pdf == 0 || pShape.GetPoint().Sub(ref.GetPoint()).LengthSquared() == 0 {
 		return NewSpectrum(0), new(Vector3f), 0, new(VisibilityTester)

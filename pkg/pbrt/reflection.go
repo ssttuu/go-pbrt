@@ -1,6 +1,9 @@
 package pbrt
 
-import "math"
+import (
+	"math"
+	"fmt"
+)
 
 const MaxBxDFs = 8
 
@@ -19,8 +22,58 @@ func SameHemisphere(w, wp *Vector3f) bool {
 	return w.Z*wp.Z > 0
 }
 
+func CosTheta(w *Vector3f) float64 {
+	return w.Z
+}
+
+func Cos2Theta(w *Vector3f) float64 {
+	return w.Z * w.Z
+}
+
 func AbsCosTheta(w *Vector3f) float64 {
 	return math.Abs(w.Z)
+}
+
+func Sin2Theta(w *Vector3f) float64 {
+	return math.Max(0, 1-Cos2Theta(w))
+}
+
+func SinTheta(w *Vector3f) float64 {
+	return math.Sqrt(Sin2Theta(w))
+}
+
+func TanTheta(w *Vector3f) float64 {
+	return SinTheta(w) / CosTheta(w)
+}
+
+func Tan2Theta(w *Vector3f) float64 {
+	return Sin2Theta(w) / Cos2Theta(w)
+}
+
+func CosPhi(w *Vector3f) float64 {
+	sinTheta := SinTheta(w)
+	if sinTheta == 0 {
+		return 1
+	}
+
+	return Clamp(w.X/sinTheta, -1, 1)
+}
+
+func SinPhi(w *Vector3f) float64 {
+	sinTheta := SinTheta(w)
+	if sinTheta == 0 {
+		return 0
+	}
+
+	return Clamp(w.Y/sinTheta, -1, 1)
+}
+
+func Cos2Phi(w *Vector3f) float64 {
+	return CosPhi(w) * CosPhi(w)
+}
+
+func Sin2Phi(w *Vector3f) float64 {
+	return SinPhi(w) * SinPhi(w)
 }
 
 type BSDF struct {
@@ -28,7 +81,22 @@ type BSDF struct {
 	ns, ng *Normal3f
 	ss, ts *Vector3f
 	nBxDFs int
-	bxdfs  [MaxBxDFs]BxDFer
+	bxdfs  []BxDFer
+}
+
+func NewBSDF(si *SurfaceInteraction, eta float64) *BSDF {
+	ns := si.shading.normal
+	ss := si.shading.dpdu.Normalized()
+	fmt.Println(ss)
+	return &BSDF{
+		Eta: eta,
+		ns:  ns,
+		ng:  si.normal,
+		ss:  ss,
+		ts:  ns.Cross(ss),
+		nBxDFs: 0,
+		bxdfs: make([]BxDFer, MaxBxDFs, MaxBxDFs),
+	}
 }
 
 func (b *BSDF) Add(b2 BxDFer) {
@@ -37,6 +105,10 @@ func (b *BSDF) Add(b2 BxDFer) {
 }
 
 func (b *BSDF) WorldToLocal(v *Vector3f) *Vector3f {
+	fmt.Println(v)
+	fmt.Println(b.ss)
+	fmt.Println(b.ts)
+	fmt.Println(b.ns)
 	return &Vector3f{v.Dot(b.ss), v.Dot(b.ts), v.Dot(b.ns)}
 }
 
@@ -59,8 +131,8 @@ func (b *BSDF) NumComponents(flags BxDFType) int {
 }
 
 func (b *BSDF) F(woW, wiW *Vector3f, flags BxDFType) Spectrum {
+	wo := b.WorldToLocal(woW)
 	wi := b.WorldToLocal(wiW)
-	wo := b.WorldToLocal(wiW)
 	if wo.Z == 0.0 {
 		return NewSpectrum(0)
 	}
@@ -69,8 +141,8 @@ func (b *BSDF) F(woW, wiW *Vector3f, flags BxDFType) Spectrum {
 	f := NewSpectrum(0)
 	for i := 0; i < b.nBxDFs; i++ {
 		if b.bxdfs[i].MatchesFlags(flags) &&
-			((reflect && (b.bxdfs[i].GetType()&BSDFReflection == 1)) ||
-				(!reflect && (b.bxdfs[i].GetType()&BSDFTransmission == 1))) {
+			((reflect && (b.bxdfs[i].GetType()&BSDFReflection > 0)) ||
+				(!reflect && (b.bxdfs[i].GetType()&BSDFTransmission > 0))) {
 			f.AddAssign(b.bxdfs[i].F(wo, wi))
 		}
 	}
@@ -131,8 +203,8 @@ func (b *BSDF) SampleF(woWorld *Vector3f, u *Point2f, t BxDFType) (s Spectrum, w
 		f.SetAll(0.0)
 		for i := 0; i < b.nBxDFs; i++ {
 			if b.bxdfs[i].MatchesFlags(t) &&
-				((reflect && (b.bxdfs[i].GetType()&BSDFReflection == 1)) ||
-					(!reflect && (b.bxdfs[i].GetType()&BSDFTransmission == 1))) {
+				((reflect && (b.bxdfs[i].GetType()&BSDFReflection > 0)) ||
+					(!reflect && (b.bxdfs[i].GetType()&BSDFTransmission > 0))) {
 				f.AddAssign(b.bxdfs[i].F(wo, wi))
 			}
 		}
@@ -192,11 +264,11 @@ func (b *BxDF) MatchesFlags(t BxDFType) bool {
 	return (b.Type & t) == b.Type
 }
 
-func (b *BxDF) F(wo, wi *Vector3f) Spectrum {
-	return nil
-}
+//func (b *BxDF) F(wo, wi *Vector3f) Spectrum {
+//	return nil
+//}
 
-func (b *BxDF) SampleF(wo *Vector3f, sample *Point2f) (s Spectrum, wi *Vector3f, pdf float64, sampledType BxDFType) {
+func sampleF(b BxDFer, wo *Vector3f, sample *Point2f) (s Spectrum, wi *Vector3f, pdf float64, sampledType BxDFType) {
 	// cosine sample the hemisphere, flipping the direction if necessary
 	wi = CosineSampleHemisphere(sample)
 	if wo.Z < 0 {
@@ -207,25 +279,25 @@ func (b *BxDF) SampleF(wo *Vector3f, sample *Point2f) (s Spectrum, wi *Vector3f,
 	return b.F(wo, wi), wi, pdf, 0
 }
 
-func (b *BxDF) Rho(w *Vector3f, samples []*Point2f) Spectrum {
+func rho(b BxDFer, w *Vector3f, samples []*Point2f) Spectrum {
 	r := NewSpectrum(0)
 	nSamples := len(samples)
 	for i := 0; i < nSamples; i++ {
-		f, wi, pdf, _ := b.SampleF(w, samples[i])
+		f, wi, pdf, _ := sampleF(b, w, samples[i])
 		if pdf > 0 {
 			r.AddAssign(f.MulScalar(AbsCosTheta(wi) / pdf))
 		}
 	}
 	return r.DivScalar(float64(nSamples))
 }
-func (b *BxDF) RhoSamples(samples1, samples2 []*Point2f) Spectrum {
+func rhoSamples(b BxDFer, samples1, samples2 []*Point2f) Spectrum {
 	r := NewSpectrum(0)
 	nSamples := len(samples1)
 	for i := 0; i < nSamples; i++ {
 		// estimate one term of rho
 		wo := UniformSampleHemisphere(samples2[i])
 		pdfo := UniformHemispherePdf()
-		f, wi, pdfi, _ := b.SampleF(wo, samples2[i])
+		f, wi, pdfi, _ := sampleF(b, wo, samples2[i])
 		if pdfi > 0 {
 			r.AddAssign(f.MulScalar(AbsCosTheta(wi) * AbsCosTheta(wo) / (pdfo * pdfi)))
 		}
@@ -234,7 +306,7 @@ func (b *BxDF) RhoSamples(samples1, samples2 []*Point2f) Spectrum {
 	return r.DivScalar(math.Pi * float64(nSamples))
 }
 
-func (b *BxDF) Pdf(wo, wi *Vector3f) float64 {
+func pdf(wo, wi *Vector3f) float64 {
 	if SameHemisphere(wo, wi) {
 		return AbsCosTheta(wi) * InvPi
 	}
@@ -267,4 +339,98 @@ func (b *ScaledBxDF) SampleF(wo *Vector3f, sample *Point2f) (s Spectrum, wi *Vec
 
 func (b *ScaledBxDF) Pdf(wo, wi *Vector3f) float64 {
 	return b.bxdf.Pdf(wo, wi)
+}
+
+type LambertianReflection struct {
+	*BxDF
+
+	r Spectrum
+}
+
+func NewLambertianReflection(r Spectrum) *LambertianReflection {
+	return &LambertianReflection{
+		BxDF: NewBxDF(BSDFReflection | BSDFDiffuse),
+		r:    r,
+	}
+}
+
+func (l *LambertianReflection) F(woW, wiW *Vector3f) Spectrum {
+	return l.r.MulScalar(InvPi)
+}
+
+func (l *LambertianReflection) SampleF(wo *Vector3f, sample *Point2f) (s Spectrum, wi *Vector3f, pdf float64, sampledType BxDFType) {
+	return sampleF(l, wo, sample)
+}
+
+func (l *LambertianReflection) Rho(wo *Vector3f, samples []*Point2f) Spectrum {
+	return l.r
+}
+
+func (l *LambertianReflection) RhoSamples(samples1, samples2 []*Point2f) Spectrum {
+	return l.r
+}
+
+func (l *LambertianReflection) Pdf(wo, wi *Vector3f) float64 {
+	return pdf(wo, wi)
+}
+
+type OrenNayar struct {
+	*BxDF
+
+	r    Spectrum
+	a, b float64
+}
+
+func NewOrenNayar(r Spectrum, sigma float64) *OrenNayar {
+	sigma = Radians(sigma)
+	sigma2 := sigma * sigma
+	return &OrenNayar{
+		BxDF: NewBxDF(BSDFReflection | BSDFDiffuse),
+		r:    r,
+		a:    1.0 - (sigma2 / (2.0 * (sigma2 + 0.33))),
+		b:    0.45 * sigma2 / (sigma2 * 0.09),
+	}
+}
+
+func (o *OrenNayar) F(wo, wi *Vector3f) Spectrum {
+	sinThetaI := SinTheta(wi)
+	sinThetaO := SinTheta(wo)
+
+	// compute cosine term of oren-nayar model
+	maxCos := 0.0
+	if sinThetaI > 1e-4 && sinThetaO > 1e-4 {
+		sinPhiI := SinPhi(wi)
+		cosPhiI := CosPhi(wi)
+		sinPhiO := SinPhi(wo)
+		cosPhiO := CosPhi(wo)
+		dCos := cosPhiI*cosPhiO + sinPhiI*sinPhiO
+		maxCos = math.Max(0.0, dCos)
+	}
+
+	// compute sine and tangent terms of Oren-Nayar model
+	var sinAlpha, tanBeta float64
+	if AbsCosTheta(wi) > AbsCosTheta(wo) {
+		sinAlpha = sinThetaO
+		tanBeta = sinThetaO / AbsCosTheta(wo)
+	} else {
+		sinAlpha = sinThetaI
+		tanBeta = sinThetaO / AbsCosTheta(wo)
+	}
+	return o.r.MulScalar(InvPi * (o.a + o.b*maxCos*sinAlpha*tanBeta))
+}
+
+func (o *OrenNayar) SampleF(wo *Vector3f, sample *Point2f) (s Spectrum, wi *Vector3f, pdf float64, sampledType BxDFType) {
+	return sampleF(o, wo, sample)
+}
+
+func (o *OrenNayar) Rho(wo *Vector3f, samples []*Point2f) Spectrum {
+	return rho(o, wo, samples)
+}
+
+func (o *OrenNayar) RhoSamples(samples1, samples2 []*Point2f) Spectrum {
+	return rhoSamples(o, samples1, samples2)
+}
+
+func (o *OrenNayar) Pdf(wo, wi *Vector3f) float64 {
+	return pdf(wo, wi)
 }

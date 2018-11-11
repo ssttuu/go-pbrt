@@ -1,14 +1,12 @@
 package pbrt
 
-
 type Scene struct {
 	Lights         []Lighter
 	infiniteLights []Lighter
 
-	Aggregate  Primitive
+	Aggregate  Aggregator
 	WorldBound *Bounds3
 }
-
 
 func (s *Scene) Intersect(r *Ray) (bool, *SurfaceInteraction) {
 	return s.Aggregate.Intersect(r)

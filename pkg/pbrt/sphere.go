@@ -12,9 +12,10 @@ type Sphere struct {
 	thetaMin, thetaMax, phiMax float64
 }
 
-func NewSphere(objectToWorld, worldToObject *Transform, reverseOrientation bool, radius, zMin, zMax, phiMax float64) *Sphere {
+func NewSphere(name string, objectToWorld, worldToObject *Transform, reverseOrientation bool, radius, zMin, zMax, phiMax float64) *Sphere {
 	return &Sphere{
 		Shape: &Shape{
+			name:               name,
 			objectToWorld:      objectToWorld,
 			worldToObject:      worldToObject,
 			reverseOrientation: reverseOrientation,
@@ -28,14 +29,14 @@ func NewSphere(objectToWorld, worldToObject *Transform, reverseOrientation bool,
 	}
 }
 
-func NewSphereShape(o2w, w2o *Transform, reverseOrientation bool, radius float64) Shaper {
-	return NewSphere(o2w, w2o, reverseOrientation, radius, -radius, radius, 360.0)
+func NewSphereShape(name string, o2w, w2o *Transform, reverseOrientation bool, radius float64) Shaper {
+	return NewSphere(name, o2w, w2o, reverseOrientation, radius, -radius, radius, 360.0)
 }
 
 func (s *Sphere) ObjectBound() *Bounds3 {
 	return &Bounds3{
-		min: &Point3f{-s.radius, -s.radius, s.zMin},
-		max: &Point3f{ s.radius,  s.radius, s.zMax},
+		Min: &Point3f{-s.radius, -s.radius, s.zMin},
+		Max: &Point3f{s.radius, s.radius, s.zMax},
 	}
 }
 
@@ -233,7 +234,7 @@ func (s *Sphere) SampleAtInteraction(ref Interaction, u *Point2f) (i Interaction
 	// sample sphere uniformly inside subtended code
 
 	// compute theta and phi values for sample in code
-	sinThetaMax2 := radiusSquared / ref.GetPoint().Distance(pCenter)
+	sinThetaMax2 := radiusSquared / ref.GetPoint().DistanceSquared(pCenter)
 	cosThetaMax := math.Sqrt(math.Max(0, 1.0-sinThetaMax2))
 	cosTheta := (1.0 - u.X) + u.X*cosThetaMax
 	sinTheta := math.Sqrt(math.Max(0, 1-cosTheta*cosTheta))
@@ -241,9 +242,8 @@ func (s *Sphere) SampleAtInteraction(ref Interaction, u *Point2f) (i Interaction
 
 	// compute angle alpha from center of sphere to sampled point on surface
 	dc := ref.GetPoint().Distance(pCenter)
-	dcSquared := dc * dc
-	ds := dc*cosTheta - math.Sqrt(math.Max(0, radiusSquared-dcSquared*sinTheta*sinTheta))
-	cosAlpha := (dcSquared + radiusSquared - ds*ds) / (2.0 * dc * s.radius)
+	ds := dc*cosTheta - math.Sqrt(math.Max(0, radiusSquared-dc*dc*sinTheta*sinTheta))
+	cosAlpha := (dc*dc + radiusSquared - ds*ds) / (2.0 * dc * s.radius)
 	sinAlpha := math.Sqrt(math.Max(0, 1.0-cosAlpha*cosAlpha))
 
 	// compute surface normal and sampled point on sphere
@@ -251,7 +251,7 @@ func (s *Sphere) SampleAtInteraction(ref Interaction, u *Point2f) (i Interaction
 	pWorld := pCenter.Add(nWorld.MulScalar(s.radius))
 
 	// return interaction for sampled point on sphere
-	var it *interaction
+	it := new(interaction)
 	it.point = pWorld
 	it.normal = (*Normal3f)(nWorld)
 	if s.reverseOrientation {
@@ -259,7 +259,7 @@ func (s *Sphere) SampleAtInteraction(ref Interaction, u *Point2f) (i Interaction
 	}
 
 	// uniform code PDF
-	pdf = 1.0 / (2.0 * math.Pi * (1 - cosThetaMax))
+	pdf = 1.0 / (2.0 * Pi * (1 - cosThetaMax))
 
 	return it, pdf
 }

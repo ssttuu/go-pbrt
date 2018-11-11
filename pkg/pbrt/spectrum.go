@@ -2,6 +2,7 @@ package pbrt
 
 import (
 	"math"
+	"fmt"
 )
 
 const (
@@ -66,6 +67,8 @@ type Spectrum interface {
 
 	IsBlack() bool
 	HasNaNs() bool
+	Clamp(low, high float64) Spectrum
+	Equals(other SpectrumGetter) bool
 
 	SetAll(v float64) Spectrum
 
@@ -73,7 +76,7 @@ type Spectrum interface {
 }
 
 func NewSpectrum(def float64) Spectrum {
-	var s Spectrum = DefaultSpectrum{}
+	var s Spectrum = &DefaultSpectrum{}
 	switch s.(type) {
 	case RGBSpectrum:
 		return NewRGBSpectrum(def, def, def)
@@ -94,6 +97,18 @@ func NewSampledSpectrum(d float64) *SampledSpectrum {
 		cs = append(cs, d)
 	}
 	return &SampledSpectrum{&cs}
+}
+
+func (s CoefficientSpectrum) String() string {
+	str := "["
+	for i, v := range s {
+		str += fmt.Sprintf("%v", v)
+		if i < len(s) - 1 {
+			str += ","
+		}
+	}
+	str += "]"
+	return str
 }
 
 func (s CoefficientSpectrum) Index(i int) float64 {
@@ -199,6 +214,13 @@ func (s CoefficientSpectrum) DivScalar(other float64) Spectrum {
 		ns.SetIndex(i, ns.Index(i) / other)
 	}
 	return ns
+}
+
+func (s CoefficientSpectrum) Clamp(low, high float64) Spectrum {
+	for i := 0; i < len(s); i++ {
+		s[i] = Clamp(s[i], low, high)
+	}
+	return s
 }
 
 func (s CoefficientSpectrum) Equals(other SpectrumGetter) bool {

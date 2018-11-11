@@ -46,7 +46,7 @@ func (xy *XYInt64) Length() int64 {
 }
 
 func (xy *XYInt64) String() string {
-	return fmt.Sprintf("XYint64(%f.3, %f.3)", xy.X, xy.Y)
+	return fmt.Sprintf("XYint64(%v, %v)", xy.X, xy.Y)
 }
 
 func (xy *XYInt64) Add(other *XYInt64) *XYInt64 {
@@ -157,7 +157,7 @@ func (xyz *XYZInt64) Length() int64 {
 }
 
 func (xyz *XYZInt64) String() string {
-	return fmt.Sprintf("XYZint64(%f.3, %f.3, %f.3)", xyz.X, xyz.Y, xyz.Z)
+	return fmt.Sprintf("XYZint64(%v, %v, %v)", xyz.X, xyz.Y, xyz.Z)
 }
 
 func (xyz *XYZInt64) Add(other *XYZInt64) *XYZInt64 {
@@ -253,7 +253,11 @@ func (xyz *XYZInt64) AbsDot(other *XYZInt64) int64 {
 }
 
 func (xyz *XYZInt64) Distance(other *XYZInt64) int64 {
-	return int64(math.Sqrt(float64(xyz.Dot(other))))
+	return int64(math.Sqrt(xyz.DistanceSquared(other)))
+}
+
+func (xyz *XYZInt64) DistanceSquared(other *XYZInt64) float64 {
+	return math.Pow(float64(other.X-xyz.X), 2) + math.Pow(float64(other.Y-xyz.Y), 2) + math.Pow(float64(other.Z-xyz.Z), 2)
 }
 
 func (xyz *XYZInt64) Cross(other *XYZInt64) *XYZInt64 {
@@ -326,7 +330,7 @@ func (xy *XYFloat64) Length() float64 {
 }
 
 func (xy *XYFloat64) String() string {
-	return fmt.Sprintf("XYfloat64(%f.3, %f.3)", xy.X, xy.Y)
+	return fmt.Sprintf("XYfloat64(%v, %v)", xy.X, xy.Y)
 }
 
 func (xy *XYFloat64) Add(other *XYFloat64) *XYFloat64 {
@@ -437,7 +441,7 @@ func (xyz *XYZFloat64) Length() float64 {
 }
 
 func (xyz *XYZFloat64) String() string {
-	return fmt.Sprintf("XYZfloat64(%f.3, %f.3, %f.3)", xyz.X, xyz.Y, xyz.Z)
+	return fmt.Sprintf("XYZfloat64(%v, %v, %v)", xyz.X, xyz.Y, xyz.Z)
 }
 
 func (xyz *XYZFloat64) Add(other *XYZFloat64) *XYZFloat64 {
@@ -533,7 +537,11 @@ func (xyz *XYZFloat64) AbsDot(other *XYZFloat64) float64 {
 }
 
 func (xyz *XYZFloat64) Distance(other *XYZFloat64) float64 {
-	return float64(math.Sqrt(float64(xyz.Dot(other))))
+	return float64(math.Sqrt(xyz.DistanceSquared(other)))
+}
+
+func (xyz *XYZFloat64) DistanceSquared(other *XYZFloat64) float64 {
+	return math.Pow(float64(other.X-xyz.X), 2) + math.Pow(float64(other.Y-xyz.Y), 2) + math.Pow(float64(other.Z-xyz.Z), 2)
 }
 
 func (xyz *XYZFloat64) Cross(other *XYZFloat64) *XYZFloat64 {
