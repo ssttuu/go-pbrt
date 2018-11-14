@@ -26,7 +26,7 @@ type Pixel struct {
 type Film struct {
 	FullResolution     *Point2i
 	Diagonal           float64
-	Filter             Filterer
+	Filter             Filter
 	CroppedPixelBounds *Bounds2i
 	Filename           string
 
@@ -38,7 +38,7 @@ type Film struct {
 	maxSampleLuminance float64
 }
 
-func NewFilm(filename string, resolution *Point2i, cropWindow *Bounds2f, filter Filterer, diagonal, scale, maxSampleLuminance float64) *Film {
+func NewFilm(filename string, resolution *Point2i, cropWindow *Bounds2f, filter Filter, diagonal, scale, maxSampleLuminance float64) *Film {
 	croppedPixelBounds := &Bounds2i{
 		Min: &Point2i{int64(math.Ceil(float64(resolution.X) * cropWindow.Min.X)), int64(math.Ceil(float64(resolution.Y) * cropWindow.Min.Y))},
 		Max: &Point2i{int64(math.Ceil(float64(resolution.X) * cropWindow.Max.X)), int64(math.Ceil(float64(resolution.Y) * cropWindow.Max.Y))},
@@ -85,8 +85,8 @@ func (f *Film) GetSampleBounds() *Bounds2i {
 	//max := NewPoint2fFromPoint2i(f.CroppedPixelBounds.Max)
 	// TODO
 	//return &Bounds2i{
-	//	Min: NewPoint2iFromPoint2f(min.Add(&Vector2f{0.5, 0.5}).Sub(f.Filter.GetRadius()).Floor()),
-	//	Max: NewPoint2iFromPoint2f(max.Sub(&Vector2f{0.5, 0.5}).Add(f.Filter.GetRadius()).Ceil()),
+	//	Min: NewPoint2iFromPoint2f(min.Add(&Vector2f{0.5, 0.5}).Sub(f.filter.GetRadius()).Floor()),
+	//	Max: NewPoint2iFromPoint2f(max.Sub(&Vector2f{0.5, 0.5}).Add(f.filter.GetRadius()).Ceil()),
 	//}
 
 	return f.CroppedPixelBounds

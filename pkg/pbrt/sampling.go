@@ -84,12 +84,12 @@ func UniformConePdf(cosThetaMax float64) float64 {
 func ConcentricSampleDisk(u *Point2f) *Point2f {
 	uOffset := u.MulScalar(2.0).Sub(&Vector2f{1, 1})
 
-	// handle degeneracy at the origin
+	// handle degeneracy at the Origin
 	if uOffset.X == 0 && uOffset.Y == 0 {
 		return &Point2f{}
 	}
 
-	// apply concentric mapping to point
+	// apply concentric mapping to Point
 	var theta, r float64
 	if math.Abs(uOffset.X) > math.Abs(uOffset.Y) {
 		r = uOffset.X

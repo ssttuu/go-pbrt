@@ -1,16 +1,16 @@
 package pbrt
 
 type Ray struct {
-	origin    *Point3f
+	Origin    *Point3f
 	direction *Vector3f
 	tMax      float64
 	time      float64
-	medium    Mediumer
+	medium    Medium
 }
 
 func NewRay(origin *Point3f, direction *Vector3f, time float64) *Ray {
 	return &Ray{
-		origin:    origin,
+		Origin:    origin,
 		direction: direction,
 		tMax:      Infinity,
 		time:      time,
@@ -18,9 +18,9 @@ func NewRay(origin *Point3f, direction *Vector3f, time float64) *Ray {
 	}
 }
 
-func NewRayWithMedium(origin *Point3f, direction *Vector3f, time float64, medium Mediumer) *Ray {
+func NewRayWithMedium(origin *Point3f, direction *Vector3f, time float64, medium Medium) *Ray {
 	return &Ray{
-		origin:    origin,
+		Origin:    origin,
 		direction: direction,
 		tMax:      Infinity,
 		time:      time,
@@ -29,7 +29,7 @@ func NewRayWithMedium(origin *Point3f, direction *Vector3f, time float64, medium
 }
 
 func (r *Ray) PointAt(t float64) *Point3f {
-	return r.origin.Mul(r.direction).MulScalar(t)
+	return r.Origin.Mul(r.direction).MulScalar(t)
 }
 
 func OffsetRayOrigin(p *Point3f, pError *Vector3f, n *Normal3f, w *Vector3f) *Point3f {
@@ -78,10 +78,10 @@ func NewRayDifferentialFromRay(r *Ray) *RayDifferential {
 }
 
 func (rd *RayDifferential) ScaleDifferentials(s float64) {
-	subbin := rd.rxOrigin.Sub(rd.origin)
+	subbin := rd.rxOrigin.Sub(rd.Origin)
 	mulscalarin := subbin.MulScalar(s)
-	rd.rxOrigin = rd.origin.Add(mulscalarin)
-	rd.ryOrigin = rd.origin.Add(rd.ryOrigin.Sub(rd.origin).MulScalar(s))
+	rd.rxOrigin = rd.Origin.Add(mulscalarin)
+	rd.ryOrigin = rd.Origin.Add(rd.ryOrigin.Sub(rd.Origin).MulScalar(s))
 	rd.rxDirection = rd.direction.Add(rd.rxDirection.Sub(rd.direction).MulScalar(s))
 	rd.ryDirection = rd.direction.Add(rd.ryDirection.Sub(rd.direction).MulScalar(s))
 }

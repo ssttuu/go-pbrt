@@ -1,34 +1,32 @@
+//go:generate mockgen -source=primitive.go -destination=primitive.mock.go -package=pbrt
+
 package pbrt
 
 import (
 	"log"
 )
 
-type Primitiver interface {
+type Primitive interface {
 	WorldBound() *Bounds3
-	Intersect(r *Ray) (bool, *SurfaceInteraction)
+	Intersect(r *Ray, si *SurfaceInteraction) bool
 	IntersectP(r *Ray) bool
 	GetAreaLight() AreaLighter
-	GetMaterial() Materialer
+	GetMaterial() Material
 	ComputeScatteringFunctions(si *SurfaceInteraction, mode TransportMode, allowMultipleLobes bool)
 }
 
-type Aggregator interface {
-	WorldBound() *Bounds3
-	Intersect(r *Ray) (bool, *SurfaceInteraction)
-	IntersectP(r *Ray) bool
-	GetAreaLight() AreaLighter
-	GetMaterial() Materialer
+type Aggregate interface {
+	Primitive
 }
 
 type GeometricPrimitive struct {
-	Shape          Shaper
-	material       Materialer
+	Shape          Shape
+	material       Material
 	areaLight      AreaLighter
 	mediumAccessor *MediumAccessor
 }
 
-func NewGeometricPrimitive(shape Shaper, m Materialer) *GeometricPrimitive {
+func NewGeometricPrimitive(shape Shape, m Material) *GeometricPrimitive {
 	return &GeometricPrimitive{
 		Shape:          shape,
 		material:       m,
@@ -45,29 +43,29 @@ func (p *GeometricPrimitive) IntersectP(r *Ray) bool {
 	return p.Shape.IntersectP(r, true)
 }
 
-func (p *GeometricPrimitive) Intersect(r *Ray) (bool, *SurfaceInteraction) {
-	intersects, tHit, isect := p.Shape.Intersect(r, true)
+func (p *GeometricPrimitive) Intersect(r *Ray, si *SurfaceInteraction) bool {
+	intersects, tHit := p.Shape.Intersect(r, si, true)
 	if !intersects {
-		return false, nil
+		return false
 	}
 	r.tMax = tHit
-	isect.primitive = p
+	si.Primitive = p
 
 	if p.mediumAccessor.IsMediumTransition() {
-		isect.mediumAccessor = p.mediumAccessor
+		si.mediumAccessor = p.mediumAccessor
 	} else {
 		//isect.mediumAccessor = &MediumAccessor{r.medium}
 	}
 
-	return true, isect
+	return true
 }
 
 func (p *GeometricPrimitive) GetAreaLight() AreaLighter {
 	return p.areaLight
 }
 
-func (p *GeometricPrimitive) GetMaterial() Materialer {
-	log.Panic("Aggregate.GetMaterial called; should have gone to GeometricPrimitive")
+func (p *GeometricPrimitive) GetMaterial() Material {
+	log.Panic("aggregate.GetMaterial called; should have gone to GeometricPrimitive")
 	return nil
 }
 
@@ -79,19 +77,20 @@ func (p *GeometricPrimitive) ComputeScatteringFunctions(si *SurfaceInteraction, 
 	p.material.ComputeScatteringFunctions(si, mode, allowMultipleLobes)
 }
 
-//func NewGeometricPrimitive(Shape *Shape, material Material, areaLigh)
+//func NewGeometricPrimitive(shape *shape, material material, areaLigh)
 
 type TransformedPrimitive struct {
-	primitive        Primitiver
+	primitive        Primitive
 	primitiveToWorld AnimatedTransform
 }
 
-func (tp *TransformedPrimitive) Intersect(r *Ray) (bool, *SurfaceInteraction) {
+func (tp *TransformedPrimitive) Intersect(r *Ray, si *SurfaceInteraction) bool {
 	interpolatedPrimToWorld := tp.primitiveToWorld.Interpolate(r.time)
 	ray := interpolatedPrimToWorld.Inverse().TransformRay(r)
-	intersects, si := tp.primitive.Intersect(ray)
+
+	intersects := tp.primitive.Intersect(ray, si)
 	if !intersects {
-		return false, si
+		return false
 	}
 	r.tMax = ray.tMax
 
@@ -99,91 +98,10 @@ func (tp *TransformedPrimitive) Intersect(r *Ray) (bool, *SurfaceInteraction) {
 		si = interpolatedPrimToWorld.TransformSurfaceInteraction(si)
 	}
 
-	return true, si
+	return true
 }
 
 func (tp *TransformedPrimitive) IntersectP(r *Ray) bool {
 	interpolatedPrimToWorld := tp.primitiveToWorld.Interpolate(r.time).Inverse()
 	return tp.primitive.IntersectP(interpolatedPrimToWorld.TransformRay(r))
-}
-
-type Aggregate struct {
-}
-
-func (a *Aggregate) WorldBound() *Bounds3 {
-	return nil
-}
-func (a *Aggregate) Intersect(r *Ray) (bool, *SurfaceInteraction) {
-	return false, nil
-}
-func (a *Aggregate) IntersectP(r *Ray) bool {
-	return false
-}
-
-func (a *Aggregate) GetAreaLight() AreaLighter {
-	log.Panic("Aggregate.GetAreaLight called; should have gone to Geometric Primitiver")
-	return nil
-}
-
-func (a *Aggregate) GetMaterial() Materialer {
-	log.Panic("Aggregate.GetMaterial called; should have gone to GeometricPrimitive")
-	return nil
-}
-
-//func (a *Aggregate) ComputeScatteringFunctions(si *SurfaceInteraction, mode TransportMode, allowMultipleLobes bool) {
-//	log.Panic("Aggregate.ComputeScatteringFunctions called; should have gone to GeometricPrimitive")
-//}
-
-type SimpleAggregate struct {
-	*Aggregate
-
-	primitives []Primitiver
-	bounds     *Bounds3
-}
-
-func NewSimpleAggregate(primitives []Primitiver) *SimpleAggregate {
-	sa := &SimpleAggregate{
-		primitives: primitives,
-	}
-	if len(primitives) == 0 {
-		return sa
-	}
-	sa.bounds = primitives[0].WorldBound()
-	for _, p := range primitives[1:] {
-		sa.bounds.Union(p.WorldBound())
-	}
-	return sa
-}
-
-func (a *SimpleAggregate) WorldBound() *Bounds3 {
-	return a.bounds
-}
-
-func (a *SimpleAggregate) Intersect(r *Ray) (bool, *SurfaceInteraction) {
-	intersects := false
-	minDist := Infinity
-	var minIsect *SurfaceInteraction
-
-	for _, p := range a.primitives {
-		doesIntersect, isect := p.Intersect(r)
-		if doesIntersect {
-			intersects = true
-			dist2 := isect.point.Distance(r.origin)
-			if dist2 < minDist {
-				minDist = dist2
-				minIsect = isect
-			}
-		}
-	}
-
-	return intersects, minIsect
-}
-func (a *SimpleAggregate) IntersectP(r *Ray) bool {
-	for _, p := range a.primitives {
-		intersects := p.IntersectP(r)
-		if intersects {
-			return intersects
-		}
-	}
-	return false
 }

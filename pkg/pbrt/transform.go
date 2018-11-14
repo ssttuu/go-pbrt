@@ -5,8 +5,8 @@ import (
 	"errors"
 )
 
-var ErrSingularMatrix = errors.New("singular matrix in matrix invert")
-var ErrSameDirectionVectors = errors.New("singular matrix in matrix invert")
+var ErrSingularMatrix = errors.New("singular Matrix in Matrix invert")
+var ErrSameDirectionVectors = errors.New("singular Matrix in Matrix invert")
 
 func SolveLinearSystem2x2(A [2][2]float64, B [2]float64) (solvable bool, x0, x1 float64) {
 	det := A[0][0]*A[1][1] - A[0][1]*A[1][0]
@@ -147,7 +147,7 @@ func (m *Matrix4x4) Inverse() (*Matrix4x4, error) {
 }
 
 type Transform struct {
-	matrix, matrixInverse *Matrix4x4
+	Matrix, MatrixInverse *Matrix4x4
 }
 
 func NewTransform(m *Matrix4x4) *Transform {
@@ -157,8 +157,8 @@ func NewTransform(m *Matrix4x4) *Transform {
 		return nil
 	}
 	return &Transform{
-		matrix:        m,
-		matrixInverse: mInv,
+		Matrix:        m,
+		MatrixInverse: mInv,
 	}
 }
 
@@ -171,29 +171,29 @@ func NewTransform(m *Matrix4x4) *Transform {
 //}
 
 func (t *Transform) IsIdentity() bool {
-	return t.matrix[0][0] == 1.0 && t.matrix[0][1] == 0.0 && t.matrix[0][2] == 0.0 && t.matrix[0][3] == 0.0 &&
-		t.matrix[1][0] == 0.0 && t.matrix[1][1] == 1.0 && t.matrix[1][2] == 0.0 && t.matrix[1][3] == 0.0 &&
-		t.matrix[2][0] == 0.0 && t.matrix[2][1] == 0.0 && t.matrix[2][2] == 1.0 && t.matrix[2][3] == 0.0 &&
-		t.matrix[3][0] == 0.0 && t.matrix[3][1] == 0.0 && t.matrix[3][2] == 0.0 && t.matrix[3][3] == 1.0
+	return t.Matrix[0][0] == 1.0 && t.Matrix[0][1] == 0.0 && t.Matrix[0][2] == 0.0 && t.Matrix[0][3] == 0.0 &&
+		t.Matrix[1][0] == 0.0 && t.Matrix[1][1] == 1.0 && t.Matrix[1][2] == 0.0 && t.Matrix[1][3] == 0.0 &&
+		t.Matrix[2][0] == 0.0 && t.Matrix[2][1] == 0.0 && t.Matrix[2][2] == 1.0 && t.Matrix[2][3] == 0.0 &&
+		t.Matrix[3][0] == 0.0 && t.Matrix[3][1] == 0.0 && t.Matrix[3][2] == 0.0 && t.Matrix[3][3] == 1.0
 
 }
 
 func (t *Transform) Inverse() *Transform {
-	return &Transform{t.matrixInverse, t.matrix}
+	return &Transform{t.MatrixInverse, t.Matrix}
 }
 
 func (t *Transform) Mul(other *Transform) *Transform {
 	return &Transform{
-		matrix:        t.matrix.Mul(other.matrix),
-		matrixInverse: t.matrixInverse.Mul(other.matrixInverse),
+		Matrix:        t.Matrix.Mul(other.Matrix),
+		MatrixInverse: t.MatrixInverse.Mul(other.MatrixInverse),
 	}
 }
 
 func (t *Transform) TransformPoint(p *Point3f) *Point3f {
-	xp := t.matrix[0][0]*p.X + t.matrix[0][1]*p.Y + t.matrix[0][2]*p.Z + t.matrix[0][3]
-	yp := t.matrix[1][0]*p.X + t.matrix[1][1]*p.Y + t.matrix[1][2]*p.Z + t.matrix[1][3]
-	zp := t.matrix[2][0]*p.X + t.matrix[2][1]*p.Y + t.matrix[2][2]*p.Z + t.matrix[2][3]
-	wp := t.matrix[3][0]*p.X + t.matrix[3][1]*p.Y + t.matrix[3][2]*p.Z + t.matrix[3][3]
+	xp := t.Matrix[0][0]*p.X + t.Matrix[0][1]*p.Y + t.Matrix[0][2]*p.Z + t.Matrix[0][3]
+	yp := t.Matrix[1][0]*p.X + t.Matrix[1][1]*p.Y + t.Matrix[1][2]*p.Z + t.Matrix[1][3]
+	zp := t.Matrix[2][0]*p.X + t.Matrix[2][1]*p.Y + t.Matrix[2][2]*p.Z + t.Matrix[2][3]
+	wp := t.Matrix[3][0]*p.X + t.Matrix[3][1]*p.Y + t.Matrix[3][2]*p.Z + t.Matrix[3][3]
 
 	pTransformed := &Point3f{xp, yp, zp}
 
@@ -208,31 +208,33 @@ func (t *Transform) TransformPoint(p *Point3f) *Point3f {
 
 func (t *Transform) TransformVector(v *Vector3f) *Vector3f {
 	return &Vector3f{
-		t.matrix[0][0]*v.X + t.matrix[0][1]*v.Y + t.matrix[0][2]*v.Z,
-		t.matrix[1][0]*v.X + t.matrix[1][1]*v.Y + t.matrix[1][2]*v.Z,
-		t.matrix[2][0]*v.X + t.matrix[2][1]*v.Y + t.matrix[2][2]*v.Z,
+		t.Matrix[0][0]*v.X + t.Matrix[0][1]*v.Y + t.Matrix[0][2]*v.Z,
+		t.Matrix[1][0]*v.X + t.Matrix[1][1]*v.Y + t.Matrix[1][2]*v.Z,
+		t.Matrix[2][0]*v.X + t.Matrix[2][1]*v.Y + t.Matrix[2][2]*v.Z,
 	}
 }
 
 func (t *Transform) TransformNormal(n *Vector3f) *Vector3f {
 	return &Vector3f{
-		t.matrixInverse[0][0]*n.X + t.matrixInverse[1][0]*n.Y + t.matrixInverse[2][0]*n.Z,
-		t.matrixInverse[0][1]*n.X + t.matrixInverse[1][1]*n.Y + t.matrixInverse[2][1]*n.Z,
-		t.matrixInverse[0][2]*n.X + t.matrixInverse[1][2]*n.Y + t.matrixInverse[2][2]*n.Z,
+		t.MatrixInverse[0][0]*n.X + t.MatrixInverse[1][0]*n.Y + t.MatrixInverse[2][0]*n.Z,
+		t.MatrixInverse[0][1]*n.X + t.MatrixInverse[1][1]*n.Y + t.MatrixInverse[2][1]*n.Z,
+		t.MatrixInverse[0][2]*n.X + t.MatrixInverse[1][2]*n.Y + t.MatrixInverse[2][2]*n.Z,
 	}
 }
 
 func (t *Transform) TransformRay(r *Ray) *Ray {
-	origin := t.TransformPoint(r.origin)
+	origin := t.TransformPoint(r.Origin)
 	direction := t.TransformVector(r.direction)
 	return &Ray{origin, direction, r.tMax, r.time, r.medium}
 }
 
 func (t *Transform) TransformSurfaceInteraction(si *SurfaceInteraction) *SurfaceInteraction {
 	ret := *si
-	ret.point = t.TransformPoint(si.point)
 
-	ret.normal = t.TransformNormal(si.normal).Normalized()
+	ret.interaction = si.interaction
+	ret.Point = t.TransformPoint(si.Point)
+
+	ret.Normal = t.TransformNormal(si.Normal).Normalized()
 	ret.wo = t.TransformVector(si.wo).Normalized()
 	ret.time = si.time
 	ret.mediumAccessor = si.mediumAccessor
@@ -253,9 +255,9 @@ func (t *Transform) TransformSurfaceInteraction(si *SurfaceInteraction) *Surface
 	ret.dvdy = si.dvdy
 	//ret.dpdx = Type.TransformVector(si.dpdx)
 	//ret.dpdy = Type.TransformVector(si.dpdy)
-	ret.bsdf = si.bsdf
-	ret.primitive = si.primitive
-	ret.shading.normal = FaceForward(ret.shading.normal, ret.normal)
+	ret.BSDF = si.BSDF
+	ret.Primitive = si.Primitive
+	ret.shading.normal = FaceForward(ret.shading.normal, ret.Normal)
 	ret.faceIndex = si.faceIndex
 	return &ret
 }
@@ -273,13 +275,13 @@ func (t *Transform) TransformBounds(b *Bounds3) *Bounds3 {
 
 func Translate(delta *Vector3f) *Transform {
 	return &Transform{
-		matrix: &Matrix4x4{
+		Matrix: &Matrix4x4{
 			{1, 0, 0, delta.X},
 			{0, 1, 0, delta.Y},
 			{0, 0, 1, delta.Z},
 			{0, 0, 0, 1},
 		},
-		matrixInverse: &Matrix4x4{
+		MatrixInverse: &Matrix4x4{
 			{1, 0, 0, -delta.X},
 			{0, 1, 0, -delta.Y},
 			{0, 0, 1, -delta.Z},
@@ -290,13 +292,13 @@ func Translate(delta *Vector3f) *Transform {
 
 func Scale(x, y, z float64) *Transform {
 	return &Transform{
-		matrix: &Matrix4x4{
+		Matrix: &Matrix4x4{
 			{x, 0, 0, 0},
 			{0, y, 0, 0},
 			{0, 0, z, 0},
 			{0, 0, 0, 1},
 		},
-		matrixInverse: &Matrix4x4{
+		MatrixInverse: &Matrix4x4{
 			{1.0 / x, 0, 0, 0},
 			{0, 1.0 / y, 0, 0},
 			{0, 0, 1.0 / z, 0},
@@ -315,8 +317,8 @@ func RotateX(theta float64) *Transform {
 		{0, 0, 0, 1},
 	}
 	return &Transform{
-		matrix:        m,
-		matrixInverse: m.Transpose(),
+		Matrix:        m,
+		MatrixInverse: m.Transpose(),
 	}
 }
 
@@ -330,8 +332,8 @@ func RotateY(theta float64) *Transform {
 		{0, 0, 0, 1},
 	}
 	return &Transform{
-		matrix:        m,
-		matrixInverse: m.Transpose(),
+		Matrix:        m,
+		MatrixInverse: m.Transpose(),
 	}
 }
 
@@ -345,8 +347,8 @@ func RotateZ(theta float64) *Transform {
 		{0, 0, 0, 1},
 	}
 	return &Transform{
-		matrix:        m,
-		matrixInverse: m.Transpose(),
+		Matrix:        m,
+		MatrixInverse: m.Transpose(),
 	}
 }
 
@@ -374,27 +376,27 @@ func Rotate(theta float64, axis Vector3f) *Transform {
 	m[2][2] = a.Z*a.Z + (1-a.Z*a.Z)*cosTheta
 	m[2][3] = 0
 
-	return &Transform{matrix: m, matrixInverse: m.Transpose()}
+	return &Transform{Matrix: m, MatrixInverse: m.Transpose()}
 }
 
 func LookAt(pos *Point3f, look *Point3f, up *Vector3f) (*Transform, error) {
-	var cameraToWorld *Matrix4x4
-	// Initialize fourth column of viewing matrix
+	cameraToWorld := new(Matrix4x4)
+	// Initialize fourth column of viewing Matrix
 	cameraToWorld[0][3] = pos.X
 	cameraToWorld[1][3] = pos.Y
 	cameraToWorld[2][3] = pos.Z
 	cameraToWorld[3][3] = 1
 
-	// Initialize first three columns of viewing matrix
+	// Initialize first three columns of viewing Matrix
 	dir := look.Sub(pos).Normalized()
 	if up.Normalized().Cross(dir).Length() == 0 {
 		return nil, ErrSameDirectionVectors
 	}
-	left := up.Normalized().Cross(dir).Normalized()
-	newUp := dir.Cross(left)
-	cameraToWorld[0][0] = left.X
-	cameraToWorld[1][0] = left.Y
-	cameraToWorld[2][0] = left.Z
+	right := up.Normalized().Cross(dir).Normalized()
+	newUp := dir.Cross(right)
+	cameraToWorld[0][0] = right.X
+	cameraToWorld[1][0] = right.Y
+	cameraToWorld[2][0] = right.Z
 	cameraToWorld[3][0] = 0.
 	cameraToWorld[0][1] = newUp.X
 	cameraToWorld[1][1] = newUp.Y
@@ -409,7 +411,7 @@ func LookAt(pos *Point3f, look *Point3f, up *Vector3f) (*Transform, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Transform{matrix: inv, matrixInverse: cameraToWorld}, nil
+	return &Transform{Matrix: cameraToWorld, MatrixInverse: inv}, nil
 }
 
 func Orthographic(zNear, zFar float64) *Transform {
@@ -462,10 +464,10 @@ func NewAnimatedTransform(start, end *Transform, startTime, endTime float64) *An
 	}
 
 	// TODO
-	//at.startT, at.startR, at.startS = Decompose(start.matrix)
-	//at.endT, at.endR, at.endS = Decompose(end.matrix)
+	//at.startT, at.startR, at.startS = Decompose(start.Matrix)
+	//at.endT, at.endR, at.endS = Decompose(end.Matrix)
 
-	// Flip R if needed to select shortest path
+	// Flip r if needed to select shortest path
 	if at.startR.Dot(at.endR) < 0 {
 		at.endR = at.endR.MulScalar(-1)
 	}
@@ -503,7 +505,7 @@ func (at *AnimatedTransform) Interpolate(time float64) *Transform {
 		}
 	}
 
-	// compute interpolated matrix as product of interpolated components
+	// compute interpolated Matrix as product of interpolated components
 	return Translate(trans).Mul(rotate.ToTransform()).Mul(NewTransform(scale))
 
 }

@@ -1,3 +1,5 @@
+//go:generate mockgen -source=interaction.go -destination=interaction.mock.go -package=pbrt
+
 package pbrt
 
 import (
@@ -16,22 +18,22 @@ type Interaction interface {
 	//GetPointError() *Vector3f
 	GetTime() float64
 	GetNormal() *Normal3f
-	//GetMedium(*Vector3f) *Mediumer
+	//GetMedium(*Vector3f) *Medium
 	SetMediumAccessor(accessor *MediumAccessor)
 }
 
 type interaction struct {
-	point          *Point3f
+	Point          *Point3f
 	time           float64
 	wo             *Vector3f
-	normal         *Normal3f
+	Normal         *Normal3f
 	mediumAccessor *MediumAccessor
 }
 
 func NewInteraction(p *Point3f, n *Normal3f, wo *Vector3f, time float64, mediumAccessor *MediumAccessor) *interaction {
 	return &interaction{
-		point:          p,
-		normal:         n,
+		Point:          p,
+		Normal:         n,
 		wo:             wo,
 		time:           time,
 		mediumAccessor: mediumAccessor,
@@ -39,11 +41,11 @@ func NewInteraction(p *Point3f, n *Normal3f, wo *Vector3f, time float64, mediumA
 }
 
 func (i *interaction) GetPoint() *Point3f {
-	return i.point
+	return i.Point
 }
 
 func (i *interaction) GetNormal() *Normal3f {
-	return i.normal
+	return i.Normal
 }
 
 func (i *interaction) GetTime() float64 {
@@ -55,18 +57,18 @@ func (i *interaction) SetMediumAccessor(accessor *MediumAccessor) {
 }
 
 func (i *interaction) SpawnRay(direction *Vector3f) *Ray {
-	return &Ray{i.point, direction, Infinity, i.time, i.GetMedium(direction)}
+	return &Ray{i.Point, direction, Infinity, i.time, i.GetMedium(direction)}
 }
 
 func (i *interaction) SpawnRayToPoint(p *Point3f) *Ray {
-	direction := p.Sub(i.point)
-	return &Ray{i.point, direction, 1 - ShadowEpsilon, i.time, i.GetMedium(direction)}
+	direction := p.Sub(i.Point)
+	return &Ray{i.Point, direction, 1 - ShadowEpsilon, i.time, i.GetMedium(direction)}
 }
 
 func (i *interaction) SpawnRayToInteraction(to Interaction) *Ray {
-	direction := to.GetPoint().Sub(i.point)
+	direction := to.GetPoint().Sub(i.Point)
 	return &Ray{
-		origin:    i.point,
+		Origin:    i.Point,
 		direction: direction,
 		tMax:      1 - ShadowEpsilon,
 		time:      i.time,
@@ -75,15 +77,15 @@ func (i *interaction) SpawnRayToInteraction(to Interaction) *Ray {
 }
 
 func (i *interaction) IsSurfaceInteraction() bool {
-	return i.normal != nil
+	return i.Normal != nil
 }
 
 func (i *interaction) IsMediumInteraction() bool {
 	return !i.IsSurfaceInteraction()
 }
 
-func (i *interaction) GetMedium(w *Vector3f) Mediumer {
-	if w.Dot(i.normal) > 0 {
+func (i *interaction) GetMedium(w *Vector3f) Medium {
+	if w.Dot(i.Normal) > 0 {
 		return i.mediumAccessor.Outside
 	}
 	return i.mediumAccessor.Inside
@@ -106,29 +108,55 @@ type SurfaceInteraction struct {
 	uv                     *Point2f
 	dpdu, dpdv             *Vector3f
 	dndu, dndv             *Normal3f
-	shape                  Shaper
+	shape                  Shape
 	shading                *Shading
-	primitive              Primitiver
-	bsdf                   *BSDF
+	Primitive              Primitive
+	BSDF                   *BSDF
 	bssrdf                 *BSSRDF
 	dpdx, dpdy             *Vector3f
 	dudx, dvdx, dudy, dvdy float64
 
 	// Shapes can optionally provide a face index with an
-	// intersection point for use in Ptex texture lookups.
+	// intersection Point for use in Ptex texture lookups.
 	// If Ptex isn'Type being used, then this value is ignored.
 	faceIndex int
 }
 
-func NewSurfaceInteraction(p *Point3f, pError *Vector3f, uv *Point2f, wo *Vector3f, dpdu, dpdv *Vector3f, dndu, dndv *Normal3f, time float64, shape Shaper, faceIndex int) *SurfaceInteraction {
+func NewSurfaceInteraction() *SurfaceInteraction {
+	return &SurfaceInteraction{
+		interaction: &interaction{
+			Point:          new(Point3f),
+			wo:             new(Vector3f),
+			Normal:         new(Normal3f),
+			mediumAccessor: nil,
+		},
+		uv:     new(Point2f),
+		dpdu:   new(Vector3f),
+		dpdv:   new(Vector3f),
+		dndu:   new(Normal3f),
+		dndv:   new(Normal3f),
+		shape:  nil,
+		shading: &Shading{
+			normal: new(Normal3f),
+			dpdu:   new(Vector3f),
+			dpdv:   new(Vector3f),
+			dndu:   new(Normal3f),
+			dndv:   new(Normal3f),
+		},
+		Primitive: nil,
+		faceIndex: 0,
+	}
+}
+
+func NewSurfaceInteractionWith(p *Point3f, uv *Point2f, wo *Vector3f, dpdu, dpdv *Vector3f, dndu, dndv *Normal3f, time float64, shape Shape, faceIndex int) *SurfaceInteraction {
 	normal := dpdu.Cross(dpdv).Normalized()
 
 	return &SurfaceInteraction{
 		interaction: &interaction{
-			point:  p,
+			Point:  p,
 			time:   time,
 			wo:     wo,
-			normal: normal,
+			Normal: normal,
 		},
 		//bssrdf: new(BSSRDF),
 		uv:     uv,
@@ -149,7 +177,7 @@ func NewSurfaceInteraction(p *Point3f, pError *Vector3f, uv *Point2f, wo *Vector
 }
 
 func (si *SurfaceInteraction) Le(w *Vector3f) Spectrum {
-	area := si.primitive.GetAreaLight()
+	area := si.Primitive.GetAreaLight()
 	if area != nil {
 		return area.L(si, w)
 	}
@@ -158,7 +186,10 @@ func (si *SurfaceInteraction) Le(w *Vector3f) Spectrum {
 
 func (si *SurfaceInteraction) ComputeScatteringFunctions(ray *RayDifferential, allowMultipleLobes bool, mode TransportMode) {
 	si.ComputeDifferentials(ray)
-	si.primitive.ComputeScatteringFunctions(si, mode, allowMultipleLobes)
+	if si.Primitive == nil {
+		return
+	}
+	si.Primitive.ComputeScatteringFunctions(si, mode, allowMultipleLobes)
 }
 
 func (si *SurfaceInteraction) ComputeDifferentials(ray *RayDifferential) {
@@ -166,32 +197,35 @@ func (si *SurfaceInteraction) ComputeDifferentials(ray *RayDifferential) {
 		// estimate screen space change in pt and (u,v)
 
 		// compute auxiliary intersection points with plane
-		d := si.normal.Dot(si.point)
-		tx := -(si.normal.Dot(ray.rxOrigin) - d) / si.normal.Dot(ray.rxDirection)
+		if si.interaction == nil {
+			return
+		}
+		d := si.Normal.Dot(si.Point)
+		tx := -(si.Normal.Dot(ray.rxOrigin) - d) / si.Normal.Dot(ray.rxDirection)
 		if math.IsNaN(tx) {
 			//goto Failed
 			return
 		}
 		px := ray.rxOrigin.Add(ray.rxDirection.MulScalar(tx))
 
-		ty := -(si.normal.Dot(ray.ryOrigin) - d) / si.normal.Dot(ray.ryDirection)
+		ty := -(si.Normal.Dot(ray.ryOrigin) - d) / si.Normal.Dot(ray.ryDirection)
 		if math.IsNaN(tx) {
 			//goto Failed
 			return
 		}
 		py := ray.ryOrigin.Add(ray.ryDirection.MulScalar(ty))
 
-		si.dpdx = px.Sub(si.point)
-		si.dpdy = py.Sub(si.point)
+		si.dpdx = px.Sub(si.Point)
+		si.dpdy = py.Sub(si.Point)
 
 		// compute (u,v) offsets at auxiliary points
 
 		// choose two dimesnions to use for ray offset computation
 		var dim [2]int
-		if math.Abs(si.normal.X) > math.Abs(si.normal.Y) && math.Abs(si.normal.X) > math.Abs(si.normal.Z) {
+		if math.Abs(si.Normal.X) > math.Abs(si.Normal.Y) && math.Abs(si.Normal.X) > math.Abs(si.Normal.Z) {
 			dim[0] = 1
 			dim[1] = 2
-		} else if math.Abs(si.normal.Y) > math.Abs(si.normal.Z) {
+		} else if math.Abs(si.Normal.Y) > math.Abs(si.Normal.Z) {
 			dim[0] = 0
 			dim[1] = 2
 		} else {
@@ -204,8 +238,8 @@ func (si *SurfaceInteraction) ComputeDifferentials(ray *RayDifferential) {
 			{si.dpdu.Index(dim[0]), si.dpdv.Index(dim[0])},
 			{si.dpdu.Index(dim[1]), si.dpdv.Index(dim[1])},
 		}
-		Bx := [2]float64{px.Index(dim[0]) - si.point.Index(dim[0]), px.Index(dim[1]) - si.point.Index(dim[1])}
-		By := [2]float64{py.Index(dim[0]) - si.point.Index(dim[0]), py.Index(dim[1]) - si.point.Index(dim[1])}
+		Bx := [2]float64{px.Index(dim[0]) - si.Point.Index(dim[0]), px.Index(dim[1]) - si.Point.Index(dim[1])}
+		By := [2]float64{py.Index(dim[0]) - si.Point.Index(dim[0]), py.Index(dim[1]) - si.Point.Index(dim[1])}
 
 		solved, dudx, dvdx := SolveLinearSystem2x2(A, Bx)
 		if !solved {

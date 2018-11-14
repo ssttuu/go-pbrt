@@ -1,10 +1,12 @@
+//go:generate mockgen -source=camera.go -destination=camera.mock.go -package=pbrt
+
 package pbrt
 
 import (
 	"math"
 )
 
-type Cameraer interface {
+type Camera interface {
 	GenerateRay(sample *CameraSample) (float64, *Ray)
 	GenerateRayDifferential(sample *CameraSample) (float64, *RayDifferential)
 	We(r *Ray) (Spectrum, *Point2f)
@@ -14,15 +16,15 @@ type Cameraer interface {
 	GetFilm() *Film
 }
 
-type Camera struct {
+type camera struct {
 	cameraToWorld             *AnimatedTransform
 	shutterOpen, shutterClose float64
 	Film                      *Film
-	medium                    Mediumer
+	medium                    Medium
 }
 
-func NewCamera(cameraToWorld *AnimatedTransform, shutterOpen, shutterClose float64, film *Film, medium Mediumer) *Camera {
-	return &Camera{
+func NewCamera(cameraToWorld *AnimatedTransform, shutterOpen, shutterClose float64, film *Film, medium Medium) *camera {
+	return &camera{
 		cameraToWorld: cameraToWorld,
 		shutterOpen:   shutterOpen,
 		shutterClose:  shutterClose,
@@ -31,15 +33,15 @@ func NewCamera(cameraToWorld *AnimatedTransform, shutterOpen, shutterClose float
 	}
 }
 
-func (c *Camera) GetFilm() *Film {
+func (c *camera) GetFilm() *Film {
 	return c.Film
 }
 
-//func (c *Camera) GenerateRay(sample *CameraSample) (float64, *Ray) {
+//func (c *camera) GenerateRay(sample *CameraSample) (float64, *Ray) {
 //	return 0, nil
 //}
 //
-//func (c *Camera) GenerateRayDifferential(sample *CameraSample) (float64, *RayDifferential) {
+//func (c *camera) GenerateRayDifferential(sample *CameraSample) (float64, *RayDifferential) {
 //	wt, r := c.GenerateRay(sample)
 //	rd := NewRayDifferentialFromRay(r)
 //
@@ -51,7 +53,7 @@ func (c *Camera) GetFilm() *Film {
 //	if wtx == 0.0 {
 //		return 0.0, rd
 //	}
-//	rd.rxOrigin = rx.origin
+//	rd.rxOrigin = rx.Origin
 //	rd.rxDirection = rx.direction
 //
 //	// find camera ray after shifting one pixel in the y direction
@@ -63,21 +65,21 @@ func (c *Camera) GetFilm() *Film {
 //		return 0.0, rd
 //	}
 //
-//	rd.ryOrigin = ry.origin
+//	rd.ryOrigin = ry.Origin
 //	rd.ryDirection = ry.direction
 //	rd.hasDifferentials = true
 //	return wt, rd
 //}
 
-//func (c *Camera) We(r *Ray, pRaster *Point2f) Spectrum {
+//func (c *camera) We(r *Ray, pRaster *Point2f) Spectrum {
 //	return nil
 //}
 //
-//func (c *Camera) PdfWe(r *Ray, pdfPos, pdfDir float64) {
+//func (c *camera) PdfWe(r *Ray, pdfPos, pdfDir float64) {
 //
 //}
 //
-//func (c *Camera) SampleWi(ref Interaction, u *Point2f, wi *Vector3f, pdf float64, pRaser *Point2f, vis *VisibilityTester) Spectrum {
+//func (c *camera) SampleWi(ref Interaction, u *Point2f, wi *Vector3f, pdf float64, pRaser *Point2f, vis *VisibilityTester) Spectrum {
 //	return nil
 //}
 
@@ -88,14 +90,14 @@ type CameraSample struct {
 }
 
 type ProjectiveCamera struct {
-	*Camera
+	*camera
 
 	CameraToScreen, RasterToCamera *Transform
 	ScreenToRaster, RasterToScreen *Transform
 	lensRadius, focalDistance      float64
 }
 
-func NewProjectiveCamera(cameraToWorld *AnimatedTransform, cameraToScreen *Transform, screenWindow *Bounds2f, shutterOpen, shutterClose float64, lensRadius, focalDistance float64, film *Film, medium Mediumer) *ProjectiveCamera {
+func NewProjectiveCamera(cameraToWorld *AnimatedTransform, cameraToScreen *Transform, screenWindow *Bounds2f, shutterOpen, shutterClose float64, lensRadius, focalDistance float64, film *Film, medium Medium) *ProjectiveCamera {
 
 	screenToRaster := Scale(float64(film.FullResolution.X), float64(film.FullResolution.Y), 1.0)
 	screenToRaster = screenToRaster.Mul(Scale(1.0/(screenWindow.Max.X-screenWindow.Min.X), 1.0/(screenWindow.Min.Y-screenWindow.Max.Y), 1.0))
@@ -105,7 +107,7 @@ func NewProjectiveCamera(cameraToWorld *AnimatedTransform, cameraToScreen *Trans
 	rasterToCamera := cameraToScreen.Inverse().Mul(rasterToScreen)
 
 	return &ProjectiveCamera{
-		Camera:         NewCamera(cameraToWorld, shutterOpen, shutterOpen, film, medium),
+		camera:         NewCamera(cameraToWorld, shutterOpen, shutterOpen, film, medium),
 		CameraToScreen: cameraToScreen,
 		RasterToCamera: rasterToCamera,
 		ScreenToRaster: screenToRaster,
@@ -124,10 +126,10 @@ type PerspectiveCamera struct {
 	A                  float64
 }
 
-func NewPerspectiveCamera(cameraToWorld *AnimatedTransform, screenWindow *Bounds2f, shutterOpen, shutterClose float64, lensRadius, focalDistance, fov float64, film *Film, medium Mediumer) *PerspectiveCamera {
+func NewPerspectiveCamera(cameraToWorld *AnimatedTransform, screenWindow *Bounds2f, shutterOpen, shutterClose float64, lensRadius, focalDistance, fov float64, film *Film, medium Medium) *PerspectiveCamera {
 	projCamera := NewProjectiveCamera(cameraToWorld, Perspective(fov, 1e-2, 1000.0), screenWindow, shutterOpen, shutterClose, lensRadius, focalDistance, film, medium)
 
-	// compute differential changes in origin for perspective camera rays
+	// compute differential changes in Origin for perspective camera rays
 	dxCamera := projCamera.RasterToCamera.TransformPoint(&Point3f{1, 0, 0}).Sub(projCamera.RasterToCamera.TransformPoint(&Point3f{0, 0, 0}))
 	dyCamera := projCamera.RasterToCamera.TransformPoint(&Point3f{0, 1, 0}).Sub(projCamera.RasterToCamera.TransformPoint(&Point3f{0, 0, 0}))
 
@@ -155,16 +157,16 @@ func (c *PerspectiveCamera) GenerateRay(sample *CameraSample) (float64, *Ray) {
 
 	// modify ray for depth of field
 	if c.lensRadius > 0 {
-		// sample point on lens
+		// sample Point on lens
 		pLens := ConcentricSampleDisk(sample.pLens).MulScalar(c.lensRadius)
 
-		// compute point on plane of focus
+		// compute Point on plane of focus
 		ft := c.focalDistance / ray.direction.Z
-		pFocus := ray.direction.MulScalar(ft).Add(ray.origin)
+		pFocus := ray.direction.MulScalar(ft).Add(ray.Origin)
 
 		// update ray for effect of lens
-		ray.origin = &Point3f{pLens.X, pLens.Y, 0}
-		ray.direction = pFocus.Sub(ray.origin).Normalized()
+		ray.Origin = &Point3f{pLens.X, pLens.Y, 0}
+		ray.direction = pFocus.Sub(ray.Origin).Normalized()
 	}
 
 	ray.time = Lerp(sample.time, c.shutterOpen, c.shutterClose)
@@ -176,9 +178,7 @@ func (c *PerspectiveCamera) GenerateRayDifferential(sample *CameraSample) (float
 	// compute raster and camera sample position
 	pFilm := &Point3f{sample.pFilm.X, sample.pFilm.Y, 0}
 	pCamera := c.RasterToCamera.TransformPoint(pFilm)
-	//fmt.Println("GenerateRayDifferential: raster:", c.RasterToCamera, pFilm, pCamera)
 	dir := pCamera.Normalized()
-	//fmt.Println("GenerateRayDifferential: dir:", pCamera, dir)
 	ray := NewRayDifferentialFromRay(NewRay(&Point3f{0, 0, 0}, dir, 0))
 
 	// modify ray for depth of field
@@ -186,24 +186,24 @@ func (c *PerspectiveCamera) GenerateRayDifferential(sample *CameraSample) (float
 		// sample points on lens
 		pLens := ConcentricSampleDisk(sample.pLens).MulScalar(c.lensRadius)
 
-		// compute point on plane of focus
+		// compute Point on plane of focus
 		ft := c.focalDistance / ray.direction.Z
-		pFocus := ray.direction.MulScalar(ft).Add(ray.origin)
+		pFocus := ray.direction.MulScalar(ft).Add(ray.Origin)
 
 		// update ray for effect of lens
-		ray.origin = &Point3f{pLens.X, pLens.Y, 0}
-		ray.direction = pFocus.Sub(ray.origin).Normalized()
+		ray.Origin = &Point3f{pLens.X, pLens.Y, 0}
+		ray.direction = pFocus.Sub(ray.Origin).Normalized()
 	}
 
 	// compute offset rays for PerspectiveCamera ray differentials
 	if c.lensRadius > 0 {
 		// compute PerspectiveCamera ray differentials accounting for lens
 
-		// sample point on lens
+		// sample Point on lens
 		pLens := ConcentricSampleDisk(sample.pLens).MulScalar(c.lensRadius)
 		dx := pCamera.Add(c.dxCamera).Normalized()
 		ft := c.focalDistance / dx.Z
-		pFocus := ray.direction.Mul(dx.MulScalar(ft)).Add(ray.origin)
+		pFocus := ray.direction.Mul(dx.MulScalar(ft)).Add(ray.Origin)
 		ray.rxOrigin = &Point3f{pLens.X, pLens.Y, 0}
 		ray.rxDirection = pFocus.Sub(ray.rxOrigin).Normalized()
 
@@ -213,8 +213,8 @@ func (c *PerspectiveCamera) GenerateRayDifferential(sample *CameraSample) (float
 		ray.ryOrigin = &Point3f{pLens.X, pLens.Y, 0}
 		ray.ryDirection = pFocus.Sub(ray.ryOrigin).Normalized()
 	} else {
-		ray.rxOrigin = ray.origin
-		ray.ryOrigin = ray.origin
+		ray.rxOrigin = ray.Origin
+		ray.ryOrigin = ray.Origin
 		ray.rxDirection = pCamera.Add(c.dxCamera).Normalized()
 		ray.ryDirection = pCamera.Add(c.dyCamera).Normalized()
 	}
@@ -227,7 +227,7 @@ func (c *PerspectiveCamera) GenerateRayDifferential(sample *CameraSample) (float
 }
 
 func (c *PerspectiveCamera) We(r *Ray) (Spectrum, *Point2f) {
-	// interpolate camera matrix and check if w is forward-facing
+	// interpolate camera Matrix and check if w is forward-facing
 	c2w := c.cameraToWorld.Interpolate(r.time)
 	cosTheta := r.direction.Dot(c2w.TransformVector(&Vector3f{0, 0, 1}))
 	if cosTheta <= 0 {
@@ -239,7 +239,7 @@ func (c *PerspectiveCamera) We(r *Ray) (Spectrum, *Point2f) {
 	if c.lensRadius > 0 {
 		v = c.focalDistance
 	}
-	pFocus := r.direction.MulScalar(v).Add(r.origin)
+	pFocus := r.direction.MulScalar(v).Add(r.Origin)
 	pRaster := c.RasterToCamera.Inverse().TransformVector(c2w.Inverse().TransformVector(pFocus))
 
 	// return zero imporance for out of bounds points
@@ -254,7 +254,7 @@ func (c *PerspectiveCamera) We(r *Ray) (Spectrum, *Point2f) {
 		lensArea = Pi * c.lensRadius * c.lensRadius
 	}
 
-	// return imporance for point on image plane
+	// return imporance for Point on image plane
 	cos2theta := cosTheta * cosTheta
 	return NewSpectrum(1.0 / (c.A * lensArea * cos2theta * cos2theta)), &Point2f{pRaster.X, pRaster.Y}
 
@@ -281,15 +281,15 @@ func (c *PerspectiveCamera) SampleWi(ref Interaction, u *Point2f) (s Spectrum, w
 	pLens := ConcentricSampleDisk(u).MulScalar(c.lensRadius)
 	pLensWorld := c.cameraToWorld.TransformPointAtTime(&Point3f{pLens.X, pLens.Y, 0}, ref.GetTime())
 	lensIntr := &interaction{
-		point:  pLensWorld,
-		normal: c.cameraToWorld.TransformVectorAtTime(&Vector3f{0, 0, 1}, ref.GetTime()),
+		Point:  pLensWorld,
+		Normal: c.cameraToWorld.TransformVectorAtTime(&Vector3f{0, 0, 1}, ref.GetTime()),
 		time:   ref.GetTime(),
 		//mediumAccessor: c.medium,
 	}
 
 	// populate arguments and compute the importance value
 	vis = &VisibilityTester{ref, lensIntr}
-	wi = lensIntr.point.Sub(ref.GetPoint())
+	wi = lensIntr.Point.Sub(ref.GetPoint())
 	dist := wi.Length()
 	wi = wi.DivScalar(dist)
 
@@ -301,7 +301,7 @@ func (c *PerspectiveCamera) SampleWi(ref Interaction, u *Point2f) (s Spectrum, w
 		lensArea = Pi * c.lensRadius * c.lensRadius
 	}
 
-	pdf = (dist * dist) / (lensIntr.normal.AbsDot(wi) * lensArea)
+	pdf = (dist * dist) / (lensIntr.Normal.AbsDot(wi) * lensArea)
 
 	spectrum, pRaster := c.We(lensIntr.SpawnRay(wi.MulScalar(-1.0)))
 

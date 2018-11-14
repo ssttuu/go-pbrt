@@ -10,6 +10,15 @@ const (
 	nRGB2SpectSamples = 32
 )
 
+type SpectrumType string
+
+const (
+	SpectrumTypeRGB     SpectrumType = "RGB"
+	SpectrumTypeSampled              = "Sampled"
+)
+
+const DefaultSpectrumType = SpectrumTypeRGB
+
 //const (
 //	X, Y, Z                                     *SampledSpectrum
 //	rgbRefl2SpectWhite, rgbRefl2SpectCyan       *SampledSpectrum
@@ -22,88 +31,36 @@ const (
 //	rgbIllum2SpectBlue                          *SampledSpectrum
 //)
 
-type CoefficientSpectrum []float64
-
-type RGBSpectrum struct {
-	*CoefficientSpectrum
-}
-type SampledSpectrum struct {
-	*CoefficientSpectrum
-}
-
-type DefaultSpectrum = RGBSpectrum
-
-//type Spectrum = RGBSpectrum
-
-type SpectrumGetter interface {
-	Index(i int) float64
-}
-
-type SpectrumSetter interface {
-	SetIndex(i int, v float64)
-}
-
-type Spectrum interface {
-	SpectrumGetter
-	SpectrumSetter
-
-	Clone() Spectrum
-
-	Add(other SpectrumGetter) Spectrum
-	AddAssign(other SpectrumGetter) Spectrum
-	AddScalar(other float64) Spectrum
-
-	Sub(other SpectrumGetter) Spectrum
-	SubAssign(other SpectrumGetter) Spectrum
-	SubScalar(other float64) Spectrum
-
-	Mul(other SpectrumGetter) Spectrum
-	MulAssign(other SpectrumGetter) Spectrum
-	MulScalar(other float64) Spectrum
-
-	Div(other SpectrumGetter) Spectrum
-	DivAssign(other SpectrumGetter) Spectrum
-	DivScalar(other float64) Spectrum
-
-	IsBlack() bool
-	HasNaNs() bool
-	Clamp(low, high float64) Spectrum
-	Equals(other SpectrumGetter) bool
-
-	SetAll(v float64) Spectrum
-
-	Y() float64
-}
+type Spectrum []float64
 
 func NewSpectrum(def float64) Spectrum {
-	var s Spectrum = &DefaultSpectrum{}
-	switch s.(type) {
-	case RGBSpectrum:
+	switch DefaultSpectrumType {
+	case SpectrumTypeRGB:
 		return NewRGBSpectrum(def, def, def)
-	case SampledSpectrum:
+	case SpectrumTypeSampled:
 		return NewSampledSpectrum(def)
 	default:
 		return NewRGBSpectrum(def, def, def)
 	}
 }
 
-func NewRGBSpectrum(r, g, b float64) *RGBSpectrum {
-	return &RGBSpectrum{&CoefficientSpectrum{r, g, b}}
+func NewRGBSpectrum(r, g, b float64) Spectrum {
+	return Spectrum{r, g, b}
 }
 
-func NewSampledSpectrum(d float64) *SampledSpectrum {
-	cs := CoefficientSpectrum{}
+func NewSampledSpectrum(d float64) Spectrum {
+	cs := Spectrum{}
 	for i := 0; i < nSpectralSamples; i++ {
 		cs = append(cs, d)
 	}
-	return &SampledSpectrum{&cs}
+	return cs
 }
 
-func (s CoefficientSpectrum) String() string {
+func (s Spectrum) String() string {
 	str := "["
 	for i, v := range s {
 		str += fmt.Sprintf("%v", v)
-		if i < len(s) - 1 {
+		if i < len(s)-1 {
 			str += ","
 		}
 	}
@@ -111,119 +68,119 @@ func (s CoefficientSpectrum) String() string {
 	return str
 }
 
-func (s CoefficientSpectrum) Index(i int) float64 {
+func (s Spectrum) Index(i int) float64 {
 	return s[i]
 }
 
-func (s CoefficientSpectrum) SetIndex(i int, v float64) {
+func (s Spectrum) SetIndex(i int, v float64) {
 	s[i] = v
 }
 
-func (s CoefficientSpectrum) SetAll(v float64) Spectrum {
+func (s Spectrum) SetAll(v float64) Spectrum {
 	for i := 0; i < len(s); i++ {
 		s[i] = v
 	}
 	return s
 }
 
-func (s CoefficientSpectrum) Clone() Spectrum {
-	ns := make(CoefficientSpectrum, len(s))
+func (s Spectrum) Clone() Spectrum {
+	ns := make(Spectrum, len(s))
 	copy(ns, s)
 	return ns
 }
 
-func (s CoefficientSpectrum) Add(other SpectrumGetter) Spectrum {
+func (s Spectrum) Add(other Spectrum) Spectrum {
 	ns := s.Clone()
 	ns.AddAssign(other)
 	return ns
 }
 
-func (s CoefficientSpectrum) AddAssign(other SpectrumGetter) Spectrum {
+func (s Spectrum) AddAssign(other Spectrum) Spectrum {
 	for i := 0; i < len(s); i++ {
 		s[i] += other.Index(i)
 	}
 	return s
 }
 
-func (s CoefficientSpectrum) AddScalar(other float64) Spectrum {
+func (s Spectrum) AddScalar(other float64) Spectrum {
 	ns := s.Clone()
 	for i := 0; i < len(s); i++ {
-		ns.SetIndex(i, ns.Index(i) + other)
+		ns.SetIndex(i, ns.Index(i)+other)
 	}
 	return ns
 }
 
-func (s CoefficientSpectrum) Sub(other SpectrumGetter) Spectrum {
+func (s Spectrum) Sub(other Spectrum) Spectrum {
 	ns := s.Clone()
 	ns.SubAssign(other)
 	return ns
 }
 
-func (s CoefficientSpectrum) SubAssign(other SpectrumGetter) Spectrum {
+func (s Spectrum) SubAssign(other Spectrum) Spectrum {
 	for i := 0; i < len(s); i++ {
 		s[i] -= other.Index(i)
 	}
 	return s
 }
 
-func (s CoefficientSpectrum) SubScalar(other float64) Spectrum {
+func (s Spectrum) SubScalar(other float64) Spectrum {
 	ns := s.Clone()
 	for i := 0; i < len(s); i++ {
-		ns.SetIndex(i, ns.Index(i) - other)
+		ns.SetIndex(i, ns.Index(i)-other)
 	}
 	return ns
 }
 
-func (s CoefficientSpectrum) Mul(other SpectrumGetter) Spectrum {
+func (s Spectrum) Mul(other Spectrum) Spectrum {
 	ns := s.Clone()
 	ns.MulAssign(other)
 	return ns
 }
 
-func (s CoefficientSpectrum) MulAssign(other SpectrumGetter) Spectrum {
+func (s Spectrum) MulAssign(other Spectrum) Spectrum {
 	for i := 0; i < len(s); i++ {
 		s[i] *= other.Index(i)
 	}
 	return s
 }
 
-func (s CoefficientSpectrum) MulScalar(other float64) Spectrum {
+func (s Spectrum) MulScalar(other float64) Spectrum {
 	ns := s.Clone()
 	for i := 0; i < len(s); i++ {
-		ns.SetIndex(i, ns.Index(i) * other)
+		ns.SetIndex(i, ns.Index(i)*other)
 	}
 	return ns
 }
 
-func (s CoefficientSpectrum) Div(other SpectrumGetter) Spectrum {
+func (s Spectrum) Div(other Spectrum) Spectrum {
 	ns := s.Clone()
 	ns.DivAssign(other)
 	return ns
 }
 
-func (s CoefficientSpectrum) DivAssign(other SpectrumGetter) Spectrum {
+func (s Spectrum) DivAssign(other Spectrum) Spectrum {
 	for i := 0; i < len(s); i++ {
 		s[i] /= other.Index(i)
 	}
 	return s
 }
 
-func (s CoefficientSpectrum) DivScalar(other float64) Spectrum {
+func (s Spectrum) DivScalar(other float64) Spectrum {
 	ns := s.Clone()
 	for i := 0; i < len(s); i++ {
-		ns.SetIndex(i, ns.Index(i) / other)
+		ns.SetIndex(i, ns.Index(i)/other)
 	}
 	return ns
 }
 
-func (s CoefficientSpectrum) Clamp(low, high float64) Spectrum {
+func (s Spectrum) Clamp(low, high float64) Spectrum {
 	for i := 0; i < len(s); i++ {
 		s[i] = Clamp(s[i], low, high)
 	}
 	return s
 }
 
-func (s CoefficientSpectrum) Equals(other SpectrumGetter) bool {
+func (s Spectrum) Equals(other Spectrum) bool {
 	for i := 0; i < len(s); i++ {
 		if s[i] != other.Index(i) {
 			return false
@@ -232,7 +189,7 @@ func (s CoefficientSpectrum) Equals(other SpectrumGetter) bool {
 	return true
 }
 
-func (s CoefficientSpectrum) IsBlack() bool {
+func (s Spectrum) IsBlack() bool {
 	for i := 0; i < len(s); i++ {
 		if s[i] != 0.0 {
 			return false
@@ -241,7 +198,7 @@ func (s CoefficientSpectrum) IsBlack() bool {
 	return true
 }
 
-func (s CoefficientSpectrum) HasNaNs() bool {
+func (s Spectrum) HasNaNs() bool {
 	for i := 0; i < len(s); i++ {
 		if math.IsNaN(s[i]) {
 			return true
@@ -250,23 +207,6 @@ func (s CoefficientSpectrum) HasNaNs() bool {
 	return false
 }
 
-func (s CoefficientSpectrum) Y() float64 {
+func (s Spectrum) Y() float64 {
 	return 0
-}
-
-func (s RGBSpectrum) R() float64 {
-	return s.Index(0)
-}
-
-func (s RGBSpectrum) G() float64 {
-	return s.Index(1)
-}
-
-func (s RGBSpectrum) B() float64 {
-	return s.Index(1)
-}
-
-func (s RGBSpectrum) Y() float64 {
-	YWeight := [3]float64{0.212671, 0.715160, 0.072169}
-	return YWeight[0]*s.R() + YWeight[1]*s.G() + YWeight[2]*s.B()
 }

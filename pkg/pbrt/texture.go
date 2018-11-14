@@ -1,3 +1,5 @@
+//go:generate mockgen -source=texture.go -destination=texture.mock.go -package=pbrt
+
 package pbrt
 
 type SpectrumTexture interface {

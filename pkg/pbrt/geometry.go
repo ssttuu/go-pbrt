@@ -2,22 +2,23 @@ package pbrt
 
 import (
 	"math"
+	"github.com/stupschwartz/go-pbrt/pkg/geometry"
 )
 
-type Point2i = XYInt64
-type Point2f = XYFloat64
+type Point2i = geometry.XYInt64
+type Point2f = geometry.XYFloat64
 
-type Vector2i = XYInt64
-type Vector2f = XYFloat64
+type Vector2i = geometry.XYInt64
+type Vector2f = geometry.XYFloat64
 
-type Point3i = XYZInt64
-type Point3f = XYZFloat64
+type Point3i = geometry.XYZInt64
+type Point3f = geometry.XYZFloat64
 
-type Vector3i = XYZInt64
-type Vector3f = XYZFloat64
+type Vector3i = geometry.XYZInt64
+type Vector3f = geometry.XYZFloat64
 
-type Normal3i = XYZInt64
-type Normal3f = XYZFloat64
+type Normal3i = geometry.XYZInt64
+type Normal3f = geometry.XYZFloat64
 
 func NewPoint2fFromPoint2i(p *Point2i) *Point2f {
 	return &Point2f{

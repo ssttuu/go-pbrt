@@ -1,8 +1,9 @@
+//go:generate mockgen -source=reflection.go -destination=reflection.mock.go -package=pbrt
+
 package pbrt
 
 import (
 	"math"
-	"fmt"
 )
 
 const MaxBxDFs = 8
@@ -81,34 +82,29 @@ type BSDF struct {
 	ns, ng *Normal3f
 	ss, ts *Vector3f
 	nBxDFs int
-	bxdfs  []BxDFer
+	bxdfs  []BxDF
 }
 
 func NewBSDF(si *SurfaceInteraction, eta float64) *BSDF {
 	ns := si.shading.normal
 	ss := si.shading.dpdu.Normalized()
-	fmt.Println(ss)
 	return &BSDF{
-		Eta: eta,
-		ns:  ns,
-		ng:  si.normal,
-		ss:  ss,
-		ts:  ns.Cross(ss),
+		Eta:    eta,
+		ns:     ns,
+		ng:     si.Normal,
+		ss:     ss,
+		ts:     ns.Cross(ss),
 		nBxDFs: 0,
-		bxdfs: make([]BxDFer, MaxBxDFs, MaxBxDFs),
+		bxdfs:  []BxDF{},
 	}
 }
 
-func (b *BSDF) Add(b2 BxDFer) {
-	b.bxdfs[b.nBxDFs] = b2
+func (b *BSDF) Add(b2 BxDF) {
+	b.bxdfs = append(b.bxdfs, b2)
 	b.nBxDFs++
 }
 
 func (b *BSDF) WorldToLocal(v *Vector3f) *Vector3f {
-	fmt.Println(v)
-	fmt.Println(b.ss)
-	fmt.Println(b.ts)
-	fmt.Println(b.ns)
 	return &Vector3f{v.Dot(b.ss), v.Dot(b.ts), v.Dot(b.ns)}
 }
 
@@ -123,7 +119,7 @@ func (b *BSDF) LocalToWorld(v *Vector3f) *Vector3f {
 func (b *BSDF) NumComponents(flags BxDFType) int {
 	num := 0
 	for i := 0; i < b.nBxDFs; i++ {
-		if b.bxdfs[i].MatchesFlags(flags) {
+		if MatchesFlags(b.bxdfs[i].GetType(), flags) {
 			num++
 		}
 	}
@@ -140,7 +136,7 @@ func (b *BSDF) F(woW, wiW *Vector3f, flags BxDFType) Spectrum {
 
 	f := NewSpectrum(0)
 	for i := 0; i < b.nBxDFs; i++ {
-		if b.bxdfs[i].MatchesFlags(flags) &&
+		if MatchesFlags(b.bxdfs[i].GetType(), flags) &&
 			((reflect && (b.bxdfs[i].GetType()&BSDFReflection > 0)) ||
 				(!reflect && (b.bxdfs[i].GetType()&BSDFTransmission > 0))) {
 			f.AddAssign(b.bxdfs[i].F(wo, wi))
@@ -158,9 +154,9 @@ func (b *BSDF) SampleF(woWorld *Vector3f, u *Point2f, t BxDFType) (s Spectrum, w
 
 	// get bxdf pointer for chosen component
 	count := comp
-	var bxdf BxDFer
+	var bxdf BxDF
 	for i := 0; i < b.nBxDFs; i++ {
-		if b.bxdfs[i].MatchesFlags(t) {
+		if MatchesFlags(b.bxdfs[i].GetType(), t) {
 			count--
 			if count == 0 {
 				bxdf = b.bxdfs[i]
@@ -172,7 +168,7 @@ func (b *BSDF) SampleF(woWorld *Vector3f, u *Point2f, t BxDFType) (s Spectrum, w
 	// remap sample u to [0,1)^2
 	uRemapped := &Point2f{u.X*float64(matchingComps) - comp, OneMinusEpsilon}
 
-	// sample chosen BxDF
+	// sample chosen bxDF
 	wo := b.WorldToLocal(woWorld)
 	if wo.Z == 0.0 {
 		return NewSpectrum(0), new(Vector3f), 0, BxDFType(0)
@@ -188,7 +184,7 @@ func (b *BSDF) SampleF(woWorld *Vector3f, u *Point2f, t BxDFType) (s Spectrum, w
 	// compute overall PDF with all matching BxDFs
 	if (bxdf.GetType()&BSDFSpecular == 0) && matchingComps > 1 {
 		for i := 0; i < b.nBxDFs; i++ {
-			if b.bxdfs[i] != bxdf && b.bxdfs[i].MatchesFlags(t) {
+			if b.bxdfs[i] != bxdf && MatchesFlags(b.bxdfs[i].GetType(), t) {
 				pdf += b.bxdfs[i].Pdf(wo, wi)
 			}
 		}
@@ -202,7 +198,7 @@ func (b *BSDF) SampleF(woWorld *Vector3f, u *Point2f, t BxDFType) (s Spectrum, w
 		reflect := wiWorld.Dot(b.ng)*woWorld.Dot(b.ng) > 0
 		f.SetAll(0.0)
 		for i := 0; i < b.nBxDFs; i++ {
-			if b.bxdfs[i].MatchesFlags(t) &&
+			if MatchesFlags(b.bxdfs[i].GetType(), t) &&
 				((reflect && (b.bxdfs[i].GetType()&BSDFReflection > 0)) ||
 					(!reflect && (b.bxdfs[i].GetType()&BSDFTransmission > 0))) {
 				f.AddAssign(b.bxdfs[i].F(wo, wi))
@@ -227,7 +223,7 @@ func (b *BSDF) Pdf(woWorld, wiWorld *Vector3f, flags BxDFType) float64 {
 	var pdf float64
 	var matchingComps int
 	for i := 0; i < b.nBxDFs; i++ {
-		if b.bxdfs[i].MatchesFlags(flags) {
+		if MatchesFlags(b.bxdfs[i].GetType(), flags) {
 			matchingComps++
 			pdf += b.bxdfs[i].Pdf(wo, wi)
 		}
@@ -238,9 +234,8 @@ func (b *BSDF) Pdf(woWorld, wiWorld *Vector3f, flags BxDFType) float64 {
 	return pdf / float64(matchingComps)
 }
 
-type BxDFer interface {
+type BxDF interface {
 	GetType() BxDFType
-	MatchesFlags(t BxDFType) bool
 	F(woW, wiW *Vector3f) Spectrum
 	SampleF(wo *Vector3f, sample *Point2f) (s Spectrum, wi *Vector3f, pdf float64, sampledType BxDFType)
 	Rho(wo *Vector3f, samples []*Point2f) Spectrum
@@ -248,27 +243,27 @@ type BxDFer interface {
 	Pdf(wo, wi *Vector3f) float64
 }
 
-type BxDF struct {
+type bxDF struct {
 	Type BxDFType
 }
 
-func NewBxDF(t BxDFType) *BxDF {
-	return &BxDF{Type: t}
+func NewBxDF(t BxDFType) *bxDF {
+	return &bxDF{Type: t}
 }
 
-func (b *BxDF) GetType() BxDFType {
+func (b *bxDF) GetType() BxDFType {
 	return b.Type
 }
 
-func (b *BxDF) MatchesFlags(t BxDFType) bool {
-	return (b.Type & t) == b.Type
+func MatchesFlags(t, flags BxDFType) bool {
+	return (t & flags) == t
 }
 
-//func (b *BxDF) F(wo, wi *Vector3f) Spectrum {
+//func (b *bxDF) F(wo, wi *Vector3f) Spectrum {
 //	return nil
 //}
 
-func sampleF(b BxDFer, wo *Vector3f, sample *Point2f) (s Spectrum, wi *Vector3f, pdf float64, sampledType BxDFType) {
+func sampleF(b BxDF, wo *Vector3f, sample *Point2f) (s Spectrum, wi *Vector3f, pdf float64, sampledType BxDFType) {
 	// cosine sample the hemisphere, flipping the direction if necessary
 	wi = CosineSampleHemisphere(sample)
 	if wo.Z < 0 {
@@ -279,7 +274,7 @@ func sampleF(b BxDFer, wo *Vector3f, sample *Point2f) (s Spectrum, wi *Vector3f,
 	return b.F(wo, wi), wi, pdf, 0
 }
 
-func rho(b BxDFer, w *Vector3f, samples []*Point2f) Spectrum {
+func rho(b BxDF, w *Vector3f, samples []*Point2f) Spectrum {
 	r := NewSpectrum(0)
 	nSamples := len(samples)
 	for i := 0; i < nSamples; i++ {
@@ -290,7 +285,7 @@ func rho(b BxDFer, w *Vector3f, samples []*Point2f) Spectrum {
 	}
 	return r.DivScalar(float64(nSamples))
 }
-func rhoSamples(b BxDFer, samples1, samples2 []*Point2f) Spectrum {
+func rhoSamples(b BxDF, samples1, samples2 []*Point2f) Spectrum {
 	r := NewSpectrum(0)
 	nSamples := len(samples1)
 	for i := 0; i < nSamples; i++ {
@@ -314,15 +309,15 @@ func pdf(wo, wi *Vector3f) float64 {
 }
 
 type ScaledBxDF struct {
-	*BxDF
+	*bxDF
 
-	bxdf  BxDFer
+	bxdf  BxDF
 	scale Spectrum
 }
 
-func NewScaledBxDF(bxdf BxDFer, scale Spectrum) *ScaledBxDF {
+func NewScaledBxDF(bxdf BxDF, scale Spectrum) *ScaledBxDF {
 	return &ScaledBxDF{
-		BxDF:  NewBxDF(bxdf.GetType()),
+		bxDF:  NewBxDF(bxdf.GetType()),
 		bxdf:  bxdf,
 		scale: scale,
 	}
@@ -341,17 +336,66 @@ func (b *ScaledBxDF) Pdf(wo, wi *Vector3f) float64 {
 	return b.bxdf.Pdf(wo, wi)
 }
 
-type LambertianReflection struct {
-	*BxDF
+type Fresnel interface {
+	Evaluate(cosI float64) Spectrum
+}
 
-	r Spectrum
+type FresnelNoOp struct {
+}
+
+func (f *FresnelNoOp) Evaluate(cosI float64) Spectrum {
+	return NewSpectrum(1.0)
+}
+
+func NewSpecularReflection(r Spectrum, fresnel Fresnel) *SpecularReflection {
+	return &SpecularReflection{
+		bxDF:    NewBxDF(BSDFReflection | BSDFDiffuse),
+		r:       r,
+		fresnel: fresnel,
+	}
+}
+
+type SpecularReflection struct {
+	*bxDF
+
+	r       Spectrum
+	fresnel Fresnel
+}
+
+func (l *SpecularReflection) F(woW, wiW *Vector3f) Spectrum {
+	return NewSpectrum(0.0)
+}
+
+func (l *SpecularReflection) SampleF(wo *Vector3f, sample *Point2f) (s Spectrum, wi *Vector3f, pdf float64, sampledType BxDFType) {
+	// Compute perfect specular reflection direction
+	wi = &Vector3f{X: -wo.X, Y: -wo.Y, Z: wo.Z}
+	pdf = 1.0
+	return l.fresnel.Evaluate(CosTheta(wi)).Mul(l.r).DivScalar(AbsCosTheta(wi)), wi, pdf, 0
+}
+
+func (l *SpecularReflection) Rho(wo *Vector3f, samples []*Point2f) Spectrum {
+	return l.r
+}
+
+func (l *SpecularReflection) RhoSamples(samples1, samples2 []*Point2f) Spectrum {
+	return l.r
+}
+
+func (l *SpecularReflection) Pdf(wo, wi *Vector3f) float64 {
+	return 0.0
 }
 
 func NewLambertianReflection(r Spectrum) *LambertianReflection {
 	return &LambertianReflection{
-		BxDF: NewBxDF(BSDFReflection | BSDFDiffuse),
+		bxDF: NewBxDF(BSDFReflection | BSDFDiffuse),
 		r:    r,
 	}
+}
+
+type LambertianReflection struct {
+	*bxDF
+
+	r Spectrum
 }
 
 func (l *LambertianReflection) F(woW, wiW *Vector3f) Spectrum {
@@ -375,7 +419,7 @@ func (l *LambertianReflection) Pdf(wo, wi *Vector3f) float64 {
 }
 
 type OrenNayar struct {
-	*BxDF
+	*bxDF
 
 	r    Spectrum
 	a, b float64
@@ -385,7 +429,7 @@ func NewOrenNayar(r Spectrum, sigma float64) *OrenNayar {
 	sigma = Radians(sigma)
 	sigma2 := sigma * sigma
 	return &OrenNayar{
-		BxDF: NewBxDF(BSDFReflection | BSDFDiffuse),
+		bxDF: NewBxDF(BSDFReflection | BSDFDiffuse),
 		r:    r,
 		a:    1.0 - (sigma2 / (2.0 * (sigma2 + 0.33))),
 		b:    0.45 * sigma2 / (sigma2 * 0.09),

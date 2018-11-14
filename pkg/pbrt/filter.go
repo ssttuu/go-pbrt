@@ -1,27 +1,29 @@
+//go:generate mockgen -source=filter.go -destination=filter.mock.go -package=pbrt
+
 package pbrt
 
-type Filterer interface {
+type Filter interface {
 	GetRadius() *Point2f
 	Evaluate(p *Point2f) float64
 }
 
-type Filter struct {
+type filter struct {
 	radius *Point2f
 }
 
-func (f *Filter) GetRadius() *Point2f {
+func (f *filter) GetRadius() *Point2f {
 	return f.radius
 }
 
 // TODO: move from pbrt core
 
 type BoxFilter struct {
-	*Filter
+	*filter
 }
 
 func NewBoxFilter(radius *Point2f) *BoxFilter {
 	return &BoxFilter{
-		Filter: &Filter{radius: radius},
+		filter: &filter{radius: radius},
 	}
 }
 
