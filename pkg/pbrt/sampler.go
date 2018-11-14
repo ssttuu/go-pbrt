@@ -1,3 +1,5 @@
+//go:generate mockgen -source=sampler.go -destination=sampler.mock.go -package=pbrt
+
 package pbrt
 
 type Sampler interface {

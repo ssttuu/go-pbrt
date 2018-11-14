@@ -1,8 +1,9 @@
+//go:generate mockgen -source=light.go -destination=light.mock.go -package=pbrt
+
 package pbrt
 
 import (
 	"math"
-	"fmt"
 )
 
 type LightFlag int
@@ -15,10 +16,10 @@ const (
 )
 
 func IsDeltaLight(flags LightFlag) bool {
-	return flags&LightFlagDeltaPosition == 1 || flags&LightFlagDeltaDirection == 1
+	return flags&LightFlagDeltaPosition >= 1 || flags&LightFlagDeltaDirection >= 1
 }
 
-type Lighter interface {
+type Light interface {
 	GetFlags() LightFlag
 	GetSamples() int
 	Preprocess()
@@ -71,7 +72,7 @@ type PointLight struct {
 	i      Spectrum
 }
 
-func NewPointLight(lightToWorld *Transform, mediumAccessor *MediumAccessor, i Spectrum) Lighter {
+func NewPointLight(lightToWorld *Transform, mediumAccessor *MediumAccessor, i Spectrum) Light {
 	return &PointLight{
 		light:  NewLight(LightFlagDeltaPosition, lightToWorld, mediumAccessor, 1),
 		pLight: lightToWorld.TransformPoint(&Point3f{0, 0, 0}),
@@ -82,7 +83,7 @@ func NewPointLight(lightToWorld *Transform, mediumAccessor *MediumAccessor, i Sp
 func (l *PointLight) SampleLi(ref Interaction, u *Point2f) (s Spectrum, wi *Vector3f, pdf float64, vis *VisibilityTester) {
 	wi = l.pLight.Sub(ref.GetPoint())
 	pdf = 1.0
-	vis = NewVisibilityTester(ref, NewInteraction(l.pLight, nil, nil, ref.GetTime(), l.MediumAccessor))
+	vis = NewVisibilityTester(ref, NewInteraction(l.pLight, new(Normal3f), new(Vector3f), ref.GetTime(), l.MediumAccessor))
 	return l.i.DivScalar(l.pLight.DistanceSquared(ref.GetPoint())), wi, pdf, vis
 }
 
@@ -129,9 +130,10 @@ func (v *VisibilityTester) Tr(scene *Scene, sampler Sampler) Spectrum {
 	ray := v.p0.SpawnRayToInteraction(v.p1)
 	Tr := NewSpectrum(1)
 	for {
-		hitSurface, isect := scene.Intersect(ray)
+		isect := NewSurfaceInteraction()
+		hitSurface := scene.Intersect(ray, isect)
 		// handle opaque surface along ray's path
-		if hitSurface && isect.primitive.GetMaterial() != nil {
+		if hitSurface && isect.Primitive.GetMaterial() != nil {
 			return NewSpectrum(0)
 		}
 
@@ -150,7 +152,7 @@ func (v *VisibilityTester) Tr(scene *Scene, sampler Sampler) Spectrum {
 }
 
 type AreaLighter interface {
-	Lighter
+	Light
 
 	L(i Interaction, w *Vector3f) Spectrum
 }
@@ -171,12 +173,12 @@ type DiffuseAreaLight struct {
 	*AreaLight
 
 	LEmit    Spectrum
-	shape    Shaper
+	shape    Shape
 	twoSided bool
 	area     float64
 }
 
-func NewDiffuseAreaLight(lightToWorld *Transform, mediumAccessor *MediumAccessor, LEmit Spectrum, nSamples int, shape Shaper, twoSided bool) *DiffuseAreaLight {
+func NewDiffuseAreaLight(lightToWorld *Transform, mediumAccessor *MediumAccessor, LEmit Spectrum, nSamples int, shape Shape, twoSided bool) *DiffuseAreaLight {
 	return &DiffuseAreaLight{
 		AreaLight: NewAreaLight(lightToWorld, mediumAccessor, nSamples),
 		LEmit:     LEmit,
@@ -204,7 +206,6 @@ func (l *DiffuseAreaLight) L(intr Interaction, w *Vector3f) Spectrum {
 
 func (l *DiffuseAreaLight) SampleLi(ref Interaction, u *Point2f) (s Spectrum, wi *Vector3f, pdf float64, vis *VisibilityTester) {
 	pShape, pdf := l.shape.SampleAtInteraction(ref, u)
-	fmt.Printf("%+v, %+v \n", pShape, pdf)
 	pShape.SetMediumAccessor(l.MediumAccessor)
 	if pdf == 0 || pShape.GetPoint().Sub(ref.GetPoint()).LengthSquared() == 0 {
 		return NewSpectrum(0), new(Vector3f), 0, new(VisibilityTester)
@@ -221,7 +222,7 @@ func (l *DiffuseAreaLight) PdfLi(ref Interaction) (float64, *Vector3f) {
 }
 
 func (l *DiffuseAreaLight) SampleLe(u1, u2 *Point2f, time float64) (s Spectrum, r *Ray, nLight *Normal3f, pdfPos, pdfDir float64) {
-	// sample a point on the are light's Shape, pShape
+	// sample a Point on the are light's shape, pShape
 	pShape, pdfPos := l.shape.Sample(u1)
 	pShape.SetMediumAccessor(l.MediumAccessor)
 
@@ -250,7 +251,7 @@ func (l *DiffuseAreaLight) SampleLe(u1, u2 *Point2f, time float64) (s Spectrum, 
 }
 
 func (l *DiffuseAreaLight) PdfLe(r *Ray, n *Normal3f) (pdfPos, pdfDir float64) {
-	it := NewInteraction(r.origin, n, n, r.time, l.MediumAccessor)
+	it := NewInteraction(r.Origin, n, n, r.time, l.MediumAccessor)
 	pdfPos = l.shape.Pdf(it)
 	if l.twoSided {
 		pdfPos = 0.5 * CosineHemispherePdf(n.AbsDot(r.direction))

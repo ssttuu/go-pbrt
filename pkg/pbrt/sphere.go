@@ -5,7 +5,7 @@ import (
 )
 
 type Sphere struct {
-	*Shape
+	*shape
 
 	radius                     float64
 	zMin, zMax                 float64
@@ -14,7 +14,7 @@ type Sphere struct {
 
 func NewSphere(name string, objectToWorld, worldToObject *Transform, reverseOrientation bool, radius, zMin, zMax, phiMax float64) *Sphere {
 	return &Sphere{
-		Shape: &Shape{
+		shape: &shape{
 			name:               name,
 			objectToWorld:      objectToWorld,
 			worldToObject:      worldToObject,
@@ -29,7 +29,7 @@ func NewSphere(name string, objectToWorld, worldToObject *Transform, reverseOrie
 	}
 }
 
-func NewSphereShape(name string, o2w, w2o *Transform, reverseOrientation bool, radius float64) Shaper {
+func NewSphereShape(name string, o2w, w2o *Transform, reverseOrientation bool, radius float64) Shape {
 	return NewSphere(name, o2w, w2o, reverseOrientation, radius, -radius, radius, 360.0)
 }
 
@@ -44,19 +44,19 @@ func (s *Sphere) WorldBound() *Bounds3 {
 	return s.objectToWorld.TransformBounds(s.ObjectBound())
 }
 
-func (s *Sphere) Intersect(r *Ray, testAlphaTexture bool) (intersects bool, tHit float64, si *SurfaceInteraction) {
+func (s *Sphere) Intersect(r *Ray, si *SurfaceInteraction, testAlphaTexture bool) (intersects bool, tHit float64) {
 	ray := s.worldToObject.TransformRay(r)
 
 	a := ray.direction.LengthSquared()
-	b := 2 * ray.direction.Dot(ray.origin)
-	c := ray.origin.LengthSquared() - s.radius*s.radius
+	b := 2 * ray.direction.Dot(ray.Origin)
+	c := ray.Origin.LengthSquared() - s.radius*s.radius
 
 	hasRoot, t0, t1 := Quadratic(a, b, c)
 	if !hasRoot {
-		return false, 0, nil
+		return false, 0
 	}
 
-	// skipped floating point error handling
+	// skipped floating Point error handling
 	tShapeHit := t0
 
 	// compute sphere hit position
@@ -67,7 +67,7 @@ func (s *Sphere) Intersect(r *Ray, testAlphaTexture bool) (intersects bool, tHit
 		pHit.X = 1e-5 * s.radius
 	}
 
-	// refine sphere intersection point
+	// refine sphere intersection Point
 	phi := math.Atan2(pHit.Y, pHit.X)
 	if phi < 0.0 {
 		phi += 2 * math.Pi
@@ -78,20 +78,20 @@ func (s *Sphere) Intersect(r *Ray, testAlphaTexture bool) (intersects bool, tHit
 		tShapeHit = t1
 		pHit = ray.PointAt(tShapeHit)
 
-		// refine sphere intersection point
+		// refine sphere intersection Point
 		pHit = pHit.MulScalar(s.radius / pHit.Distance(&Point3f{0, 0, 0}))
 		if pHit.X == 0.0 && pHit.Y == 0.0 {
 			pHit.X = 1e-5 * s.radius
 		}
 
-		// refine sphere intersection point
+		// refine sphere intersection Point
 		phi := math.Atan2(pHit.Y, pHit.X)
 		if phi < 0.0 {
 			phi += 2 * math.Pi
 		}
 
 		if (s.zMin > -s.radius && pHit.Z < s.zMin) || s.zMax < s.radius && pHit.Z > s.zMax || phi > s.phiMax {
-			return false, 0, nil
+			return false, 0
 		}
 	}
 
@@ -129,25 +129,25 @@ func (s *Sphere) Intersect(r *Ray, testAlphaTexture bool) (intersects bool, tHit
 
 	// skipping error bounds for sphere intersection
 
-	si = NewSurfaceInteraction(pHit, &Vector3f{}, &Point2f{u, v}, ray.direction.MulScalar(-1), dpdu, dpdv, dndu, dndv, ray.time, s, 0)
-	si = s.objectToWorld.TransformSurfaceInteraction(si)
+	*si = *NewSurfaceInteractionWith(pHit, &Point2f{u, v}, ray.direction.MulScalar(-1), dpdu, dpdv, dndu, dndv, ray.time, s, 0)
+	*si = *s.objectToWorld.TransformSurfaceInteraction(si)
 
-	return true, tShapeHit, si
+	return true, tShapeHit
 }
 
 func (s *Sphere) IntersectP(r *Ray, testAlphaTexture bool) (intersects bool) {
 	ray := s.worldToObject.TransformRay(r)
 
 	a := ray.direction.LengthSquared()
-	b := 2 * ray.direction.Dot(ray.origin)
-	c := ray.origin.LengthSquared() - s.radius*s.radius
+	b := 2 * ray.direction.Dot(ray.Origin)
+	c := ray.Origin.LengthSquared() - s.radius*s.radius
 
 	hasRoot, t0, t1 := Quadratic(a, b, c)
 	if !hasRoot {
 		return false
 	}
 
-	// skipped floating point error handling
+	// skipped floating Point error handling
 	tShapeHit := t0
 
 	// compute sphere hit position
@@ -158,7 +158,7 @@ func (s *Sphere) IntersectP(r *Ray, testAlphaTexture bool) (intersects bool) {
 		pHit.X = 1e-5 * s.radius
 	}
 
-	// refine sphere intersection point
+	// refine sphere intersection Point
 	phi := math.Atan2(pHit.Y, pHit.X)
 	if phi < 0.0 {
 		phi += 2 * math.Pi
@@ -169,13 +169,13 @@ func (s *Sphere) IntersectP(r *Ray, testAlphaTexture bool) (intersects bool) {
 		tShapeHit = t1
 		pHit = ray.PointAt(tShapeHit)
 
-		// refine sphere intersection point
+		// refine sphere intersection Point
 		pHit = pHit.MulScalar(s.radius / pHit.Distance(&Point3f{0, 0, 0}))
 		if pHit.X == 0.0 && pHit.Y == 0.0 {
 			pHit.X = 1e-5 * s.radius
 		}
 
-		// refine sphere intersection point
+		// refine sphere intersection Point
 		phi := math.Atan2(pHit.Y, pHit.X)
 		if phi < 0.0 {
 			phi += 2 * math.Pi
@@ -193,14 +193,14 @@ func (s *Sphere) Sample(u *Point2f) (i Interaction, pdf float64) {
 	pObj := new(Point3f).Add(UniformSampleSphere(u).MulScalar(s.radius))
 
 	var it *interaction
-	it.normal = s.objectToWorld.TransformNormal((*Normal3f)(pObj)).Normalized()
+	it.Normal = s.objectToWorld.TransformNormal((*Normal3f)(pObj)).Normalized()
 	if s.reverseOrientation {
-		it.normal = it.normal.MulScalar(-1)
+		it.Normal = it.Normal.MulScalar(-1)
 	}
 
 	// reproject pObj to sphere surface
 	pObj = pObj.MulScalar(s.radius / pObj.Distance(&Point3f{0, 0, 0}))
-	it.point = s.objectToWorld.TransformPoint(pObj)
+	it.Point = s.objectToWorld.TransformPoint(pObj)
 
 	return it, 1.0 / s.Area()
 }
@@ -240,22 +240,22 @@ func (s *Sphere) SampleAtInteraction(ref Interaction, u *Point2f) (i Interaction
 	sinTheta := math.Sqrt(math.Max(0, 1-cosTheta*cosTheta))
 	phi := u.Y * 2 * math.Pi
 
-	// compute angle alpha from center of sphere to sampled point on surface
+	// compute angle alpha from center of sphere to sampled Point on surface
 	dc := ref.GetPoint().Distance(pCenter)
 	ds := dc*cosTheta - math.Sqrt(math.Max(0, radiusSquared-dc*dc*sinTheta*sinTheta))
 	cosAlpha := (dc*dc + radiusSquared - ds*ds) / (2.0 * dc * s.radius)
 	sinAlpha := math.Sqrt(math.Max(0, 1.0-cosAlpha*cosAlpha))
 
-	// compute surface normal and sampled point on sphere
+	// compute surface Normal and sampled Point on sphere
 	nWorld := SphericalDirectionXYZ(sinAlpha, cosAlpha, phi, wcX.MulScalar(-1), wcY.MulScalar(-1), wc.MulScalar(-1))
 	pWorld := pCenter.Add(nWorld.MulScalar(s.radius))
 
-	// return interaction for sampled point on sphere
+	// return interaction for sampled Point on sphere
 	it := new(interaction)
-	it.point = pWorld
-	it.normal = (*Normal3f)(nWorld)
+	it.Point = pWorld
+	it.Normal = (*Normal3f)(nWorld)
 	if s.reverseOrientation {
-		it.normal = it.normal.MulScalar(-1)
+		it.Normal = it.Normal.MulScalar(-1)
 	}
 
 	// uniform code PDF
@@ -269,7 +269,7 @@ func (s *Sphere) PdfWi(ref Interaction) (float64, *Vector3f) {
 	pOrigin := ref.GetPoint()
 
 	if pOrigin.Distance(pCenter) <= s.radius {
-		return s.Shape.PdfWi(ref)
+		return s.shape.PdfWi(ref)
 	}
 
 	sinThetaMax2 := s.radius * s.radius / ref.GetPoint().Dot(pCenter)

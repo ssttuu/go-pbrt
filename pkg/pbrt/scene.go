@@ -1,34 +1,37 @@
 package pbrt
 
 type Scene struct {
-	Lights         []Lighter
-	infiniteLights []Lighter
+	Lights         []Light
+	infiniteLights []Light
 
-	Aggregate  Aggregator
+	Aggregate  Aggregate
 	WorldBound *Bounds3
 }
 
-func (s *Scene) Intersect(r *Ray) (bool, *SurfaceInteraction) {
-	return s.Aggregate.Intersect(r)
+func (s *Scene) Intersect(r *Ray, si *SurfaceInteraction) bool {
+	return s.Aggregate.Intersect(r, si)
 }
 
 func (s *Scene) IntersectP(r *Ray) bool {
 	return s.Aggregate.IntersectP(r)
 }
 
-func (s *Scene) IntersectTr(r *Ray, sampler Sampler) (intersects bool, si *SurfaceInteraction, transmittance Spectrum) {
-	transmittance = NewRGBSpectrum(1.0, 1.0, 1.0)
+func (s *Scene) IntersectTr(r *Ray, si *SurfaceInteraction, sampler Sampler, transmittance Spectrum) bool {
+	transmittance.SetAll(1.0)
 	for {
-		hitSurface, si := s.Intersect(r)
+		hitSurface := s.Intersect(r, si)
+
+		// Accumulate beam transmittance for ray segment
 		if r.medium != nil {
 			transmittance.MulAssign(r.medium.Tr(r, sampler))
 		}
 
+		// Initialize next ray segment or terminate transmittance computation
 		if !hitSurface {
-			return false, si, transmittance
+			return false
 		}
-		if si.primitive.GetMaterial() != nil {
-			return true, si, transmittance
+		if si.Primitive != nil && si.Primitive.GetMaterial() != nil {
+			return true
 		}
 		r = si.SpawnRay(r.direction)
 	}
