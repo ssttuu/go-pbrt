@@ -35,6 +35,20 @@ func TestSpectrum_AddScalar(t *testing.T) {
 	assert.Equal(t, NewSpectrum(3), result)
 }
 
+func TestSpectrum_Clone(t *testing.T) {
+	s1 := NewSpectrum(1)
+	alias := s1
+	clone := s1.Clone()
+
+	s1[0] = 5.0
+
+	assert.Equal(t, 5.0, s1[0] )
+	assert.Equal(t, 5.0, alias[0] )
+	assert.NotEqual(t, 5.0, clone[0] )
+	assert.Equal(t, 1.0, clone[0] )
+	assert.Equal(t, len(s1), len(clone))
+}
+
 func TestSpectrum_IsBlack(t *testing.T) {
 	assert.False(t, NewRGBSpectrum(1.0, 0.0, 1.0).IsBlack())
 	assert.False(t, NewSpectrum(1).IsBlack())

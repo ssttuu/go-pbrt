@@ -54,7 +54,7 @@ func (p *GeometricPrimitive) Intersect(r *Ray, si *SurfaceInteraction) bool {
 	if p.mediumAccessor.IsMediumTransition() {
 		si.mediumAccessor = p.mediumAccessor
 	} else {
-		//isect.mediumAccessor = &MediumAccessor{r.medium}
+		si.mediumAccessor = &MediumAccessor{r.medium, r.medium}
 	}
 
 	return true

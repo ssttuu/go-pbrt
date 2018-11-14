@@ -93,6 +93,10 @@ func (xy *XYGenericType) DivAssign(other *XYGenericType) {
 	xy.Y /= other.Y
 }
 
+func (xy *XYGenericType) DivScalar(other GenericType) *XYGenericType {
+	return &XYGenericType{xy.X / other, xy.Y / other}
+}
+
 func (xy *XYGenericType) Equals(other *XYGenericType) bool {
 	return xy.X == other.X && xy.Y == other.Y
 }
@@ -187,9 +191,9 @@ func (xyz *XYZGenericType) Sub(other *XYZGenericType) *XYZGenericType {
 }
 
 func (xyz *XYZGenericType) SubAssign(other *XYZGenericType) {
-	xyz.X += other.X
-	xyz.Y += other.Y
-	xyz.Z += other.Z
+	xyz.X -= other.X
+	xyz.Y -= other.Y
+	xyz.Z -= other.Z
 }
 
 func (xyz *XYZGenericType) Mul(other *XYZGenericType) *XYZGenericType {
@@ -201,9 +205,9 @@ func (xyz *XYZGenericType) Mul(other *XYZGenericType) *XYZGenericType {
 }
 
 func (xyz *XYZGenericType) MulAssign(other *XYZGenericType) {
-	xyz.X += other.X
-	xyz.Y += other.Y
-	xyz.Z += other.Z
+	xyz.X *= other.X
+	xyz.Y *= other.Y
+	xyz.Z *= other.Z
 }
 
 func (xyz *XYZGenericType) MulScalar(other GenericType) *XYZGenericType {
@@ -223,9 +227,9 @@ func (xyz *XYZGenericType) Div(other *XYZGenericType) *XYZGenericType {
 }
 
 func (xyz *XYZGenericType) DivAssign(other *XYZGenericType) {
-	xyz.X += other.X
-	xyz.Y += other.Y
-	xyz.Z += other.Z
+	xyz.X /= other.X
+	xyz.Y /= other.Y
+	xyz.Z /= other.Z
 }
 
 func (xyz *XYZGenericType) DivScalar(other GenericType) *XYZGenericType {

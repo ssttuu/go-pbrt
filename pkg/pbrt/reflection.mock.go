@@ -9,67 +9,55 @@ import (
 	reflect "reflect"
 )
 
-// MockBxDFer is a mock of BxDF interface
-type MockBxDFer struct {
+// MockBxDF is a mock of BxDF interface
+type MockBxDF struct {
 	ctrl     *gomock.Controller
-	recorder *MockBxDFerMockRecorder
+	recorder *MockBxDFMockRecorder
 }
 
-// MockBxDFerMockRecorder is the mock recorder for MockBxDFer
-type MockBxDFerMockRecorder struct {
-	mock *MockBxDFer
+// MockBxDFMockRecorder is the mock recorder for MockBxDF
+type MockBxDFMockRecorder struct {
+	mock *MockBxDF
 }
 
-// NewMockBxDFer creates a new mock instance
-func NewMockBxDFer(ctrl *gomock.Controller) *MockBxDFer {
-	mock := &MockBxDFer{ctrl: ctrl}
-	mock.recorder = &MockBxDFerMockRecorder{mock}
+// NewMockBxDF creates a new mock instance
+func NewMockBxDF(ctrl *gomock.Controller) *MockBxDF {
+	mock := &MockBxDF{ctrl: ctrl}
+	mock.recorder = &MockBxDFMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockBxDFer) EXPECT() *MockBxDFerMockRecorder {
+func (m *MockBxDF) EXPECT() *MockBxDFMockRecorder {
 	return m.recorder
 }
 
 // GetType mocks base method
-func (m *MockBxDFer) GetType() BxDFType {
+func (m *MockBxDF) GetType() BxDFType {
 	ret := m.ctrl.Call(m, "GetType")
 	ret0, _ := ret[0].(BxDFType)
 	return ret0
 }
 
 // GetType indicates an expected call of GetType
-func (mr *MockBxDFerMockRecorder) GetType() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetType", reflect.TypeOf((*MockBxDFer)(nil).GetType))
-}
-
-// MatchesFlags mocks base method
-func (m *MockBxDFer) MatchesFlags(t BxDFType) bool {
-	ret := m.ctrl.Call(m, "MatchesFlags", t)
-	ret0, _ := ret[0].(bool)
-	return ret0
-}
-
-// MatchesFlags indicates an expected call of MatchesFlags
-func (mr *MockBxDFerMockRecorder) MatchesFlags(t interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MatchesFlags", reflect.TypeOf((*MockBxDFer)(nil).MatchesFlags), t)
+func (mr *MockBxDFMockRecorder) GetType() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetType", reflect.TypeOf((*MockBxDF)(nil).GetType))
 }
 
 // F mocks base method
-func (m *MockBxDFer) F(woW, wiW *Vector3f) Spectrum {
+func (m *MockBxDF) F(woW, wiW *Vector3f) Spectrum {
 	ret := m.ctrl.Call(m, "F", woW, wiW)
 	ret0, _ := ret[0].(Spectrum)
 	return ret0
 }
 
 // F indicates an expected call of F
-func (mr *MockBxDFerMockRecorder) F(woW, wiW interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "F", reflect.TypeOf((*MockBxDFer)(nil).F), woW, wiW)
+func (mr *MockBxDFMockRecorder) F(woW, wiW interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "F", reflect.TypeOf((*MockBxDF)(nil).F), woW, wiW)
 }
 
 // SampleF mocks base method
-func (m *MockBxDFer) SampleF(wo *Vector3f, sample *Point2f) (Spectrum, *Vector3f, float64, BxDFType) {
+func (m *MockBxDF) SampleF(wo *Vector3f, sample *Point2f) (Spectrum, *Vector3f, float64, BxDFType) {
 	ret := m.ctrl.Call(m, "SampleF", wo, sample)
 	ret0, _ := ret[0].(Spectrum)
 	ret1, _ := ret[1].(*Vector3f)
@@ -79,42 +67,77 @@ func (m *MockBxDFer) SampleF(wo *Vector3f, sample *Point2f) (Spectrum, *Vector3f
 }
 
 // SampleF indicates an expected call of SampleF
-func (mr *MockBxDFerMockRecorder) SampleF(wo, sample interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SampleF", reflect.TypeOf((*MockBxDFer)(nil).SampleF), wo, sample)
+func (mr *MockBxDFMockRecorder) SampleF(wo, sample interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SampleF", reflect.TypeOf((*MockBxDF)(nil).SampleF), wo, sample)
 }
 
 // Rho mocks base method
-func (m *MockBxDFer) Rho(wo *Vector3f, samples []*Point2f) Spectrum {
+func (m *MockBxDF) Rho(wo *Vector3f, samples []*Point2f) Spectrum {
 	ret := m.ctrl.Call(m, "Rho", wo, samples)
 	ret0, _ := ret[0].(Spectrum)
 	return ret0
 }
 
 // Rho indicates an expected call of Rho
-func (mr *MockBxDFerMockRecorder) Rho(wo, samples interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Rho", reflect.TypeOf((*MockBxDFer)(nil).Rho), wo, samples)
+func (mr *MockBxDFMockRecorder) Rho(wo, samples interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Rho", reflect.TypeOf((*MockBxDF)(nil).Rho), wo, samples)
 }
 
 // RhoSamples mocks base method
-func (m *MockBxDFer) RhoSamples(samples1, samples2 []*Point2f) Spectrum {
+func (m *MockBxDF) RhoSamples(samples1, samples2 []*Point2f) Spectrum {
 	ret := m.ctrl.Call(m, "RhoSamples", samples1, samples2)
 	ret0, _ := ret[0].(Spectrum)
 	return ret0
 }
 
 // RhoSamples indicates an expected call of RhoSamples
-func (mr *MockBxDFerMockRecorder) RhoSamples(samples1, samples2 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RhoSamples", reflect.TypeOf((*MockBxDFer)(nil).RhoSamples), samples1, samples2)
+func (mr *MockBxDFMockRecorder) RhoSamples(samples1, samples2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RhoSamples", reflect.TypeOf((*MockBxDF)(nil).RhoSamples), samples1, samples2)
 }
 
 // Pdf mocks base method
-func (m *MockBxDFer) Pdf(wo, wi *Vector3f) float64 {
+func (m *MockBxDF) Pdf(wo, wi *Vector3f) float64 {
 	ret := m.ctrl.Call(m, "Pdf", wo, wi)
 	ret0, _ := ret[0].(float64)
 	return ret0
 }
 
 // Pdf indicates an expected call of Pdf
-func (mr *MockBxDFerMockRecorder) Pdf(wo, wi interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pdf", reflect.TypeOf((*MockBxDFer)(nil).Pdf), wo, wi)
+func (mr *MockBxDFMockRecorder) Pdf(wo, wi interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pdf", reflect.TypeOf((*MockBxDF)(nil).Pdf), wo, wi)
+}
+
+// MockFresnel is a mock of Fresnel interface
+type MockFresnel struct {
+	ctrl     *gomock.Controller
+	recorder *MockFresnelMockRecorder
+}
+
+// MockFresnelMockRecorder is the mock recorder for MockFresnel
+type MockFresnelMockRecorder struct {
+	mock *MockFresnel
+}
+
+// NewMockFresnel creates a new mock instance
+func NewMockFresnel(ctrl *gomock.Controller) *MockFresnel {
+	mock := &MockFresnel{ctrl: ctrl}
+	mock.recorder = &MockFresnelMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockFresnel) EXPECT() *MockFresnelMockRecorder {
+	return m.recorder
+}
+
+// Evaluate mocks base method
+func (m *MockFresnel) Evaluate(cosI float64) Spectrum {
+	ret := m.ctrl.Call(m, "Evaluate", cosI)
+	ret0, _ := ret[0].(Spectrum)
+	return ret0
+}
+
+// Evaluate indicates an expected call of Evaluate
+func (mr *MockFresnelMockRecorder) Evaluate(cosI interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Evaluate", reflect.TypeOf((*MockFresnel)(nil).Evaluate), cosI)
 }

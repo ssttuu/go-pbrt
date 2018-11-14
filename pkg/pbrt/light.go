@@ -81,7 +81,7 @@ func NewPointLight(lightToWorld *Transform, mediumAccessor *MediumAccessor, i Sp
 }
 
 func (l *PointLight) SampleLi(ref Interaction, u *Point2f) (s Spectrum, wi *Vector3f, pdf float64, vis *VisibilityTester) {
-	wi = l.pLight.Sub(ref.GetPoint())
+	wi = l.pLight.Sub(ref.GetPoint()).Normalized()
 	pdf = 1.0
 	vis = NewVisibilityTester(ref, NewInteraction(l.pLight, new(Normal3f), new(Vector3f), ref.GetTime(), l.MediumAccessor))
 	return l.i.DivScalar(l.pLight.DistanceSquared(ref.GetPoint())), wi, pdf, vis
