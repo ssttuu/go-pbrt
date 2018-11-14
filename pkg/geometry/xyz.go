@@ -93,6 +93,10 @@ func (xy *XYInt64) DivAssign(other *XYInt64) {
 	xy.Y /= other.Y
 }
 
+func (xy *XYInt64) DivScalar(other int64) *XYInt64 {
+	return &XYInt64{xy.X / other, xy.Y / other}
+}
+
 func (xy *XYInt64) Equals(other *XYInt64) bool {
 	return xy.X == other.X && xy.Y == other.Y
 }
@@ -187,9 +191,9 @@ func (xyz *XYZInt64) Sub(other *XYZInt64) *XYZInt64 {
 }
 
 func (xyz *XYZInt64) SubAssign(other *XYZInt64) {
-	xyz.X += other.X
-	xyz.Y += other.Y
-	xyz.Z += other.Z
+	xyz.X -= other.X
+	xyz.Y -= other.Y
+	xyz.Z -= other.Z
 }
 
 func (xyz *XYZInt64) Mul(other *XYZInt64) *XYZInt64 {
@@ -201,9 +205,9 @@ func (xyz *XYZInt64) Mul(other *XYZInt64) *XYZInt64 {
 }
 
 func (xyz *XYZInt64) MulAssign(other *XYZInt64) {
-	xyz.X += other.X
-	xyz.Y += other.Y
-	xyz.Z += other.Z
+	xyz.X *= other.X
+	xyz.Y *= other.Y
+	xyz.Z *= other.Z
 }
 
 func (xyz *XYZInt64) MulScalar(other int64) *XYZInt64 {
@@ -223,9 +227,9 @@ func (xyz *XYZInt64) Div(other *XYZInt64) *XYZInt64 {
 }
 
 func (xyz *XYZInt64) DivAssign(other *XYZInt64) {
-	xyz.X += other.X
-	xyz.Y += other.Y
-	xyz.Z += other.Z
+	xyz.X /= other.X
+	xyz.Y /= other.Y
+	xyz.Z /= other.Z
 }
 
 func (xyz *XYZInt64) DivScalar(other int64) *XYZInt64 {
@@ -377,6 +381,10 @@ func (xy *XYFloat64) DivAssign(other *XYFloat64) {
 	xy.Y /= other.Y
 }
 
+func (xy *XYFloat64) DivScalar(other float64) *XYFloat64 {
+	return &XYFloat64{xy.X / other, xy.Y / other}
+}
+
 func (xy *XYFloat64) Equals(other *XYFloat64) bool {
 	return xy.X == other.X && xy.Y == other.Y
 }
@@ -471,9 +479,9 @@ func (xyz *XYZFloat64) Sub(other *XYZFloat64) *XYZFloat64 {
 }
 
 func (xyz *XYZFloat64) SubAssign(other *XYZFloat64) {
-	xyz.X += other.X
-	xyz.Y += other.Y
-	xyz.Z += other.Z
+	xyz.X -= other.X
+	xyz.Y -= other.Y
+	xyz.Z -= other.Z
 }
 
 func (xyz *XYZFloat64) Mul(other *XYZFloat64) *XYZFloat64 {
@@ -485,9 +493,9 @@ func (xyz *XYZFloat64) Mul(other *XYZFloat64) *XYZFloat64 {
 }
 
 func (xyz *XYZFloat64) MulAssign(other *XYZFloat64) {
-	xyz.X += other.X
-	xyz.Y += other.Y
-	xyz.Z += other.Z
+	xyz.X *= other.X
+	xyz.Y *= other.Y
+	xyz.Z *= other.Z
 }
 
 func (xyz *XYZFloat64) MulScalar(other float64) *XYZFloat64 {
@@ -507,9 +515,9 @@ func (xyz *XYZFloat64) Div(other *XYZFloat64) *XYZFloat64 {
 }
 
 func (xyz *XYZFloat64) DivAssign(other *XYZFloat64) {
-	xyz.X += other.X
-	xyz.Y += other.Y
-	xyz.Z += other.Z
+	xyz.X /= other.X
+	xyz.Y /= other.Y
+	xyz.Z /= other.Z
 }
 
 func (xyz *XYZFloat64) DivScalar(other float64) *XYZFloat64 {

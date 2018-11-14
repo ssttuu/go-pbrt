@@ -66,7 +66,7 @@ func main() {
 	xform := pbrt.Translate(&pbrt.Vector3f{10, 0, 0})
 	sphere := pbrt.NewSphereShape("Green Sphere", xform, xform.Inverse(), false, 5.0)
 
-	primitives = append(primitives, pbrt.NewGeometricPrimitive(sphere, pbrt.NewMatteMaterial(pbrt.NewConstantSpectrumTexture(pbrt.NewRGBSpectrum(0.0, 1.0, 0.0)), sigma, nil)))
+	primitives = append(primitives, pbrt.NewGeometricPrimitive(sphere, pbrt.NewMatteMaterial(pbrt.NewConstantSpectrumTexture(pbrt.NewRGBSpectrum(0.0, 2.0, 0.0)), sigma, nil)))
 
 	agg := accelerator.NewSimpleAggregate(primitives)
 
@@ -77,7 +77,7 @@ func main() {
 	pointLight := pbrt.NewPointLight(
 		pbrt.Translate(&pbrt.Vector3f{0, 0, 0}),
 		nil,
-		pbrt.NewSpectrum(pbrt.Pi*100),
+		pbrt.NewSpectrum(pbrt.Pi*100000),
 	)
 
 	lights := []pbrt.Light{
@@ -92,8 +92,9 @@ func main() {
 	}
 
 	shutterOpen, shutterClose := 0.0, 1.0
-	div := int64(1)
-	resolution := &pbrt.Point2i{X: 1920 / div, Y: 1080 / div}
+
+	resolution := &pbrt.Point2i{X: 1920, Y: 1080}
+
 	cropBounds := &pbrt.Bounds2f{Min: &pbrt.Point2f{X: 0, Y: 0}, Max: &pbrt.Point2f{X: 1, Y: 1}}
 	boxFilter := pbrt.NewBoxFilter(&pbrt.Point2f{X: 1,Y: 1})
 
@@ -102,7 +103,7 @@ func main() {
 
 	film := pbrt.NewFilm(fmt.Sprintf("build/render-%s.png", time.Now().Format(time.RFC3339)), resolution, cropBounds, boxFilter, 100.0, 1.0, 1.0)
 
-	camXform, err := pbrt.LookAt(&pbrt.Point3f{X: 100, Y: 100, Z: 100}, &pbrt.Point3f{X: 0,Y: 0, Z: 0}, &pbrt.Vector3f{0, 0, 1})
+	camXform, err := pbrt.LookAt(&pbrt.Point3f{X: 200, Y: 200, Z: 200}, &pbrt.Point3f{X: 0,Y: 0, Z: 0}, &pbrt.Vector3f{0, 0, 1})
 	if err != nil {
 		log.Fatal(err)
 	}

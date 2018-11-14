@@ -99,7 +99,7 @@ func EstimateDirect(it Interaction, uScattering *Point2f, light Light, uLight *P
 			log.Panicf("UnknownInteraction: %+v\n", intr)
 		}
 
-		// TODO: remove
+		// FIXME: remove
 		return f
 
 		if !f.IsBlack() {
@@ -131,13 +131,13 @@ func EstimateDirect(it Interaction, uScattering *Point2f, light Light, uLight *P
 			var f Spectrum
 			sampledSpecular := false
 			switch intr := it.(type) {
-			case SurfaceInteraction:
+			case *SurfaceInteraction:
 				// sample scattered direction for surface interactions
 				var sampledType BxDFType
 				f, wi, scatteringPdf, sampledType = intr.BSDF.SampleF(intr.wo, uScattering, bsdfFlags)
 				f.MulScalar(wi.AbsDot(intr.shading.normal))
 				sampledSpecular = sampledType&BSDFSpecular != 0
-			case MediumInteraction:
+			case *MediumInteraction:
 				// sample scattered direction for medium interactions
 				p := intr.phase.SampleP(intr.wo, wi, uScattering)
 				f = NewSpectrum(p)
@@ -145,6 +145,7 @@ func EstimateDirect(it Interaction, uScattering *Point2f, light Light, uLight *P
 			}
 
 			if !f.IsBlack() && scatteringPdf > 0.0 {
+
 				// Account for light contributions along sampled direction wi
 				weight := 1.0
 				if !sampledSpecular {
