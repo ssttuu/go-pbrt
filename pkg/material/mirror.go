@@ -1,8 +1,9 @@
 package material
 
 import (
-	"github.com/stupschwartz/go-pbrt/pkg/pbrt"
 	"math"
+
+	"github.com/stupschwartz/go-pbrt/pkg/pbrt"
 )
 
 func NewMirror() *Mirror {

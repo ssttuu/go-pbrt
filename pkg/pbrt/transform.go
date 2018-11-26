@@ -1,12 +1,14 @@
 package pbrt
 
 import (
-	"math"
-	"errors"
+	"log"
+
+	"github.com/pkg/errors"
+	"github.com/stupschwartz/go-pbrt/pkg/math"
 )
 
 var ErrSingularMatrix = errors.New("singular Matrix in Matrix invert")
-var ErrSameDirectionVectors = errors.New("singular Matrix in Matrix invert")
+var ErrSameDirectionVectors = errors.New("same direction in Matrix invert")
 
 func SolveLinearSystem2x2(A [2][2]float64, B [2]float64) (solvable bool, x0, x1 float64) {
 	det := A[0][0]*A[1][1] - A[0][1]*A[1][0]
@@ -24,8 +26,8 @@ func SolveLinearSystem2x2(A [2][2]float64, B [2]float64) (solvable bool, x0, x1 
 
 type Matrix4x4 [4][4]float64
 
-func NewMatrix4x4() Matrix4x4 {
-	return Matrix4x4{
+func NewMatrix4x4() *Matrix4x4 {
+	return &Matrix4x4{
 		{1.0, 0.0, 0.0, 0.0},
 		{0.0, 1.0, 0.0, 0.0},
 		{0.0, 0.0, 1.0, 0.0},
@@ -45,14 +47,7 @@ func (m *Matrix4x4) Equals(other *Matrix4x4) bool {
 }
 
 func (m *Matrix4x4) NotEquals(other *Matrix4x4) bool {
-	for i := 0; i < 4; i++ {
-		for j := 0; j < 4; j++ {
-			if m[i][j] != other[i][j] {
-				return true
-			}
-		}
-	}
-	return false
+	return !m.Equals(other)
 }
 
 func (m *Matrix4x4) Transpose() *Matrix4x4 {
@@ -89,7 +84,7 @@ func (m *Matrix4x4) Inverse() (*Matrix4x4, error) {
 				for k := 0; k < 4; k++ {
 					if ipiv[k] == 0 {
 						if math.Abs(minv[j][k]) >= big {
-							big = float64(math.Abs(minv[j][k]))
+							big = math.Abs(minv[j][k])
 							irow = j
 							icol = k
 						}
@@ -153,8 +148,7 @@ type Transform struct {
 func NewTransform(m *Matrix4x4) *Transform {
 	mInv, err := m.Inverse()
 	if err != nil {
-		// TODO
-		return nil
+		log.Fatal("TODO")
 	}
 	return &Transform{
 		Matrix:        m,
@@ -189,21 +183,67 @@ func (t *Transform) Mul(other *Transform) *Transform {
 	}
 }
 
-func (t *Transform) TransformPoint(p *Point3f) *Point3f {
+//func (t *Transform) TransformPoint(p *Point3f) *Point3f {
+//	// compute transformed points from p
+//	xp := t.Matrix[0][0]*p.X + t.Matrix[0][1]*p.Y + t.Matrix[0][2]*p.Z + t.Matrix[0][3]
+//	yp := t.Matrix[1][0]*p.X + t.Matrix[1][1]*p.Y + t.Matrix[1][2]*p.Z + t.Matrix[1][3]
+//	zp := t.Matrix[2][0]*p.X + t.Matrix[2][1]*p.Y + t.Matrix[2][2]*p.Z + t.Matrix[2][3]
+//	wp := t.Matrix[3][0]*p.X + t.Matrix[3][1]*p.Y + t.Matrix[3][2]*p.Z + t.Matrix[3][3]
+//
+//	newPoint := &Point3f{xp, yp, zp}
+//
+//	if wp == 1.0 {
+//		return newPoint
+//	}
+//
+//	return newPoint.DivScalar(wp)
+//}
+//
+//
+//func (t *Transform) TransformPointAndError(p *Point3f) (newPoint *Point3f, newPointError *Vector3f) {
+//	// compute transformed points from p
+//	xp := t.Matrix[0][0]*p.X + t.Matrix[0][1]*p.Y + t.Matrix[0][2]*p.Z + t.Matrix[0][3]
+//	yp := t.Matrix[1][0]*p.X + t.Matrix[1][1]*p.Y + t.Matrix[1][2]*p.Z + t.Matrix[1][3]
+//	zp := t.Matrix[2][0]*p.X + t.Matrix[2][1]*p.Y + t.Matrix[2][2]*p.Z + t.Matrix[2][3]
+//	wp := t.Matrix[3][0]*p.X + t.Matrix[3][1]*p.Y + t.Matrix[3][2]*p.Z + t.Matrix[3][3]
+//
+//	// compute absolute error for transformed point
+//	*newPointError = Vector3f{
+//		X: math.Abs(t.Matrix[0][0] * p.X) + math.Abs(t.Matrix[0][1] * p.Y) + math.Abs(t.Matrix[0][2] * p.Z) + math.Abs(t.Matrix[0][3]),
+//		Y: math.Abs(t.Matrix[1][0] * p.X) + math.Abs(t.Matrix[1][1] * p.Y) + math.Abs(t.Matrix[1][2] * p.Z) + math.Abs(t.Matrix[0][3]),
+//		Z: math.Abs(t.Matrix[2][0] * p.X) + math.Abs(t.Matrix[2][1] * p.Y) + math.Abs(t.Matrix[2][2] * p.Z) + math.Abs(t.Matrix[0][3]),
+//	}
+//	newPointError = newPointError.MulScalar(Gamma(3))
+//
+//	*newPoint = Point3f{xp, yp, zp}
+//
+//	if wp == 1.0 {
+//		return newPoint, newPointError
+//	}
+//
+//	return newPoint.DivScalar(wp), newPointError
+//}
+
+func (t *Transform) TransformPoint(p *Point3f, pError *Vector3f) (*Point3f, *Vector3f) {
+	// compute transformed points from p
 	xp := t.Matrix[0][0]*p.X + t.Matrix[0][1]*p.Y + t.Matrix[0][2]*p.Z + t.Matrix[0][3]
 	yp := t.Matrix[1][0]*p.X + t.Matrix[1][1]*p.Y + t.Matrix[1][2]*p.Z + t.Matrix[1][3]
 	zp := t.Matrix[2][0]*p.X + t.Matrix[2][1]*p.Y + t.Matrix[2][2]*p.Z + t.Matrix[2][3]
 	wp := t.Matrix[3][0]*p.X + t.Matrix[3][1]*p.Y + t.Matrix[3][2]*p.Z + t.Matrix[3][3]
 
-	pTransformed := &Point3f{xp, yp, zp}
-
-	if wp == 1.0 {
-		return pTransformed
+	absError := &Vector3f{
+		X: (math.Gamma(3.0)+1.0)*(math.Abs(t.Matrix[0][0])*pError.X+math.Abs(t.Matrix[0][1])*pError.Y+math.Abs(t.Matrix[0][2])*pError.Z) + (math.Gamma(3) * (math.Abs(t.Matrix[0][0]*p.X) + math.Abs(t.Matrix[0][1])*p.Y + math.Abs(t.Matrix[0][2]*p.Z+math.Abs(t.Matrix[0][3])))),
+		Y: (math.Gamma(3.0)+1.0)*(math.Abs(t.Matrix[1][0])*pError.X+math.Abs(t.Matrix[1][1])*pError.Y+math.Abs(t.Matrix[1][2])*pError.Z) + (math.Gamma(3) * (math.Abs(t.Matrix[1][0]*p.X) + math.Abs(t.Matrix[1][1])*p.Y + math.Abs(t.Matrix[1][2]*p.Z+math.Abs(t.Matrix[1][3])))),
+		Z: (math.Gamma(3.0)+1.0)*(math.Abs(t.Matrix[2][0])*pError.X+math.Abs(t.Matrix[2][1])*pError.Y+math.Abs(t.Matrix[2][2])*pError.Z) + (math.Gamma(3) * (math.Abs(t.Matrix[2][0]*p.X) + math.Abs(t.Matrix[2][1])*p.Y + math.Abs(t.Matrix[2][2]*p.Z+math.Abs(t.Matrix[2][3])))),
 	}
 
-	return pTransformed
-	// TODO
-	//return pTransformed.DivScalar(wp)
+	newPoint := &Point3f{xp, yp, zp}
+
+	if wp == 1.0 {
+		return newPoint, absError
+	}
+
+	return newPoint.DivScalar(wp), absError
 }
 
 func (t *Transform) TransformVector(v *Vector3f) *Vector3f {
@@ -214,25 +254,44 @@ func (t *Transform) TransformVector(v *Vector3f) *Vector3f {
 	}
 }
 
+func (t *Transform) TransformVectorWithAbsError(v *Vector3f) (newVector *Vector3f, absError *Vector3f) {
+	newVector = &Vector3f{
+		t.Matrix[0][0]*v.X + t.Matrix[0][1]*v.Y + t.Matrix[0][2]*v.Z,
+		t.Matrix[1][0]*v.X + t.Matrix[1][1]*v.Y + t.Matrix[1][2]*v.Z,
+		t.Matrix[2][0]*v.X + t.Matrix[2][1]*v.Y + t.Matrix[2][2]*v.Z,
+	}
+	absError = &Vector3f{
+		X: math.Gamma(3) * (math.Abs(t.Matrix[0][0]*v.X) + math.Abs(t.Matrix[0][1]*v.Y) + math.Abs(t.Matrix[0][2]*v.Z)),
+		Y: math.Gamma(3) * (math.Abs(t.Matrix[1][0]*v.X) + math.Abs(t.Matrix[1][1]*v.Y) + math.Abs(t.Matrix[1][2]*v.Z)),
+		Z: math.Gamma(3) * (math.Abs(t.Matrix[2][0]*v.X) + math.Abs(t.Matrix[2][1]*v.Y) + math.Abs(t.Matrix[2][2]*v.Z)),
+	}
+	return newVector, absError
+}
+
 func (t *Transform) TransformNormal(n *Vector3f) *Vector3f {
 	return &Vector3f{
-		t.MatrixInverse[0][0]*n.X + t.MatrixInverse[1][0]*n.Y + t.MatrixInverse[2][0]*n.Z,
-		t.MatrixInverse[0][1]*n.X + t.MatrixInverse[1][1]*n.Y + t.MatrixInverse[2][1]*n.Z,
-		t.MatrixInverse[0][2]*n.X + t.MatrixInverse[1][2]*n.Y + t.MatrixInverse[2][2]*n.Z,
+		X: t.MatrixInverse[0][0]*n.X + t.MatrixInverse[1][0]*n.Y + t.MatrixInverse[2][0]*n.Z,
+		Y: t.MatrixInverse[0][1]*n.X + t.MatrixInverse[1][1]*n.Y + t.MatrixInverse[2][1]*n.Z,
+		Z: t.MatrixInverse[0][2]*n.X + t.MatrixInverse[1][2]*n.Y + t.MatrixInverse[2][2]*n.Z,
 	}
 }
 
-func (t *Transform) TransformRay(r *Ray) *Ray {
-	origin := t.TransformPoint(r.Origin)
-	direction := t.TransformVector(r.direction)
-	return &Ray{origin, direction, r.tMax, r.time, r.medium}
+func (t *Transform) TransformRay(ray *Ray) (r *Ray, originErr, directionErr *Vector3f) {
+	origin, originErr := t.TransformPoint(ray.Origin, new(Vector3f))
+	direction, directionErr := t.TransformVectorWithAbsError(ray.Direction)
+	lengthSquared := direction.LengthSquared()
+	if lengthSquared > 0 {
+		dt := direction.Abs().Dot(originErr) / lengthSquared
+		origin.AddAssign(direction.MulScalar(dt))
+	}
+	return &Ray{origin, direction, ray.TMax, ray.Time, ray.Medium}, originErr, directionErr
 }
 
 func (t *Transform) TransformSurfaceInteraction(si *SurfaceInteraction) *SurfaceInteraction {
 	ret := *si
 
 	ret.interaction = si.interaction
-	ret.Point = t.TransformPoint(si.Point)
+	ret.Point, ret.PointError = t.TransformPoint(si.Point, si.PointError)
 
 	ret.Normal = t.TransformNormal(si.Normal).Normalized()
 	ret.wo = t.TransformVector(si.wo).Normalized()
@@ -263,13 +322,14 @@ func (t *Transform) TransformSurfaceInteraction(si *SurfaceInteraction) *Surface
 }
 
 func (t *Transform) TransformBounds(b *Bounds3) *Bounds3 {
-	ret := &Bounds3{Min: t.TransformPoint(b.Min), Max: t.TransformPoint(b.Max)}
-	ret.UnionPoint(t.TransformPoint(&Point3f{b.Max.X, b.Min.Y, b.Min.Z}))
-	ret.UnionPoint(t.TransformPoint(&Point3f{b.Min.X, b.Max.Y, b.Min.Z}))
-	ret.UnionPoint(t.TransformPoint(&Point3f{b.Min.X, b.Min.Y, b.Max.Z}))
-	ret.UnionPoint(t.TransformPoint(&Point3f{b.Min.X, b.Max.Y, b.Max.Z}))
-	ret.UnionPoint(t.TransformPoint(&Point3f{b.Max.X, b.Max.Y, b.Min.Z}))
-	ret.UnionPoint(t.TransformPoint(&Point3f{b.Max.X, b.Min.Y, b.Max.Z}))
+	pError := new(Vector3f)
+	corner, _ := t.TransformPoint(b.Min, pError)
+	ret := &Bounds3{Min: corner, Max: corner}
+
+	for i := 1; i < 8; i++ {
+		corner, _ = t.TransformPoint(b.Corner(i), pError)
+		ret.UnionPoint(corner)
+	}
 	return ret
 }
 
@@ -307,9 +367,9 @@ func Scale(x, y, z float64) *Transform {
 	}
 }
 
-func RotateX(theta float64) *Transform {
-	sinTheta := math.Sin(Radians(theta))
-	cosTheta := math.Cos(Radians(theta))
+func RotateX(degrees float64) *Transform {
+	sinTheta := math.Sin(math.Radians(degrees))
+	cosTheta := math.Cos(math.Radians(degrees))
 	m := &Matrix4x4{
 		{1, 0, 0, 0},
 		{0, cosTheta, -sinTheta, 0},
@@ -322,9 +382,9 @@ func RotateX(theta float64) *Transform {
 	}
 }
 
-func RotateY(theta float64) *Transform {
-	sinTheta := math.Sin(Radians(theta))
-	cosTheta := math.Cos(Radians(theta))
+func RotateY(degrees float64) *Transform {
+	sinTheta := math.Sin(math.Radians(degrees))
+	cosTheta := math.Cos(math.Radians(degrees))
 	m := &Matrix4x4{
 		{cosTheta, 0, sinTheta, 0},
 		{0, 1, 0, 0},
@@ -337,9 +397,9 @@ func RotateY(theta float64) *Transform {
 	}
 }
 
-func RotateZ(theta float64) *Transform {
-	sinTheta := math.Sin(Radians(theta))
-	cosTheta := math.Cos(Radians(theta))
+func RotateZ(degrees float64) *Transform {
+	sinTheta := math.Sin(math.Radians(degrees))
+	cosTheta := math.Cos(math.Radians(degrees))
 	m := &Matrix4x4{
 		{cosTheta, -sinTheta, 0, 0},
 		{sinTheta, cosTheta, 0, 0},
@@ -354,8 +414,8 @@ func RotateZ(theta float64) *Transform {
 
 func Rotate(theta float64, axis Vector3f) *Transform {
 	a := axis.Normalized()
-	sinTheta := math.Sin(Radians(theta))
-	cosTheta := math.Cos(Radians(theta))
+	sinTheta := math.Sin(math.Radians(theta))
+	cosTheta := math.Cos(math.Radians(theta))
 
 	var m *Matrix4x4
 
@@ -409,7 +469,7 @@ func LookAt(pos *Point3f, look *Point3f, up *Vector3f) (*Transform, error) {
 
 	inv, err := cameraToWorld.Inverse()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "inverting camera")
 	}
 	return &Transform{Matrix: cameraToWorld, MatrixInverse: inv}, nil
 }
@@ -426,7 +486,7 @@ func Perspective(fov, n, f float64) *Transform {
 		{0, 0, 1, 0},
 	}
 
-	invTanAng := 1.0 / math.Tan(Radians(fov)/2)
+	invTanAng := 1.0 / math.Tan(math.Radians(fov)/2)
 	return Scale(invTanAng, invTanAng, 1).Mul(NewTransform(persp))
 }
 
@@ -501,41 +561,60 @@ func (at *AnimatedTransform) Interpolate(time float64) *Transform {
 	var scale *Matrix4x4
 	for i := 0; i < 3; i++ {
 		for j := 0; j < 3; j++ {
-			scale[i][j] = Lerp(dt, at.startS[i][j], at.endS[i][j])
+			scale[i][j] = math.Lerp(dt, at.startS[i][j], at.endS[i][j])
 		}
 	}
 
 	// compute interpolated Matrix as product of interpolated components
 	return Translate(trans).Mul(rotate.ToTransform()).Mul(NewTransform(scale))
+}
 
+func (at *AnimatedTransform) MotionBounds(b *Bounds3) *Bounds3 {
+	if !at.actuallyAnimated {
+		return at.startTransform.TransformBounds(b)
+	}
+
+	// TODO:
+	return nil
 }
 
 func (at *AnimatedTransform) TransformRay(r *Ray) *Ray {
-	if !at.actuallyAnimated || r.time <= at.startTime {
-		return at.startTransform.TransformRay(r)
-	} else if r.time >= at.endTime {
-		return at.endTransform.TransformRay(r)
+	if !at.actuallyAnimated || r.Time <= at.startTime {
+		ray, _, _ := at.startTransform.TransformRay(r)
+		return ray
+	} else if r.Time >= at.endTime {
+		ray, _, _ := at.endTransform.TransformRay(r)
+		return ray
 	}
 
-	return at.Interpolate(r.time).TransformRay(r)
+	ray, _, _ := at.Interpolate(r.Time).TransformRay(r)
+	return ray
 }
 
 func (at *AnimatedTransform) TransformPointAtTime(p *Point3f, time float64) *Point3f {
+	pError := new(Vector3f)
 	if !at.actuallyAnimated || time <= at.startTime {
-		return at.startTransform.TransformPoint(p)
+		pt, _ := at.startTransform.TransformPoint(p, pError)
+		return pt
 	} else if time >= at.endTime {
-		return at.endTransform.TransformPoint(p)
+		pt, _ := at.endTransform.TransformPoint(p, pError)
+		return pt
 	}
 
-	return at.Interpolate(time).TransformPoint(p)
+	pt, _ := at.Interpolate(time).TransformPoint(p, pError)
+	return pt
 }
 
 func (at *AnimatedTransform) TransformVectorAtTime(v *Vector3f, time float64) *Vector3f {
+	pError := new(Vector3f)
 	if !at.actuallyAnimated || time <= at.startTime {
-		return at.startTransform.TransformPoint(v)
+		pt, _ := at.startTransform.TransformPoint(v, pError)
+		return pt
 	} else if time >= at.endTime {
-		return at.endTransform.TransformPoint(v)
+		pt, _ := at.endTransform.TransformPoint(v, pError)
+		return pt
 	}
 
-	return at.Interpolate(time).TransformPoint(v)
+	pt, _ := at.Interpolate(time).TransformPoint(v, pError)
+	return pt
 }

@@ -1,6 +1,6 @@
 package pbrt
 
-import "math"
+import "github.com/stupschwartz/go-pbrt/pkg/math"
 
 //////////////
 // Bounds2f //
@@ -30,8 +30,8 @@ func (b *Bounds2f) MaximumExtent() uint8 {
 
 func (b *Bounds2f) Lerp(other *Point2f) *Point2f {
 	return &Point2f{
-		Lerp(other.X, b.Min.X, b.Max.X),
-		Lerp(other.Y, b.Min.Y, b.Max.Y),
+		math.Lerp(other.X, b.Min.X, b.Max.X),
+		math.Lerp(other.Y, b.Min.Y, b.Max.Y),
 	}
 }
 
@@ -74,8 +74,8 @@ func (b *Bounds2i) MaximumExtent() uint8 {
 
 func (b *Bounds2i) Lerp(other *Point2i) *Point2i {
 	return &Point2i{
-		int64(Lerp(float64(other.X), float64(b.Min.X), float64(b.Max.X))),
-		int64(Lerp(float64(other.Y), float64(b.Min.Y), float64(b.Max.Y))),
+		int64(math.Lerp(float64(other.X), float64(b.Min.X), float64(b.Max.X))),
+		int64(math.Lerp(float64(other.Y), float64(b.Min.Y), float64(b.Max.Y))),
 	}
 }
 
@@ -97,10 +97,24 @@ func (b *Bounds2i) Intersect(other *Bounds2i) *Bounds2i {
 	}
 }
 
-
 type Bounds3 struct {
 	Min *Point3f
 	Max *Point3f
+}
+
+func (b *Bounds3) Corner(corner int) *Point3f {
+	return &Point3f{
+		X: b.GetIndex(corner & 1).X,
+		Y: b.GetIndex((corner & 2) / 2).Y,
+		Z: b.GetIndex((corner & 4) / 4).Z,
+	}
+}
+
+func (b *Bounds3) GetIndex(i int) *Point3f {
+	if i == 0 {
+		return b.Min
+	}
+	return b.Max
 }
 
 func (b *Bounds3) Diagonal() *Vector3f {
@@ -109,7 +123,7 @@ func (b *Bounds3) Diagonal() *Vector3f {
 
 func (b *Bounds3) SurfaceArea() float64 {
 	d := b.Diagonal()
-	return 2 * (d.X * d.Y + d.X * d.Z + d.Y * d.Z)
+	return 2 * (d.X*d.Y + d.X*d.Z + d.Y*d.Z)
 }
 
 func (b *Bounds3) MaximumExtent() int {
@@ -122,9 +136,9 @@ func (b *Bounds3) MaximumExtent() int {
 
 func (b *Bounds3) Lerp(other *Point3f) *Point3f {
 	return &Point3f{
-		Lerp(other.X, b.Min.X, b.Max.X),
-		Lerp(other.Y, b.Min.Y, b.Max.Y),
-		Lerp(other.Z, b.Min.Z, b.Max.Z),
+		math.Lerp(other.X, b.Min.X, b.Max.X),
+		math.Lerp(other.Y, b.Min.Y, b.Max.Y),
+		math.Lerp(other.Z, b.Min.Z, b.Max.Z),
 	}
 }
 

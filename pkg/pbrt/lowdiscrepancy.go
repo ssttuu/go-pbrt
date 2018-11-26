@@ -1,6 +1,6 @@
 package pbrt
 
-import "math"
+import "github.com/stupschwartz/go-pbrt/pkg/math"
 
 const PrimeTableSize = 1024
 
@@ -87,7 +87,7 @@ var Primes = [PrimeTableSize]uint64{
 	7529, 7537, 7541, 7547, 7549, 7559, 7561, 7573, 7577, 7583, 7589, 7591,
 	7603, 7607, 7621, 7639, 7643, 7649, 7669, 7673, 7681, 7687, 7691, 7699,
 	7703, 7717, 7723, 7727, 7741, 7753, 7757, 7759, 7789, 7793, 7817, 7823,
-	7829, 7841, 7853, 7867, 7873, 7877, 7879, 7883, 7901, 7907, 7919};
+	7829, 7841, 7853, 7867, 7873, 7877, 7879, 7883, 7901, 7907, 7919}
 
 var PrimeSums = [PrimeTableSize]int{
 	0, 2, 5, 10, 17,
@@ -233,7 +233,7 @@ func RadicalInverseSpecialized(base, a uint64) float64 {
 		invBaseN *= uint64(invBase)
 		a = next
 	}
-	return math.Min(float64(reversedDigits*invBaseN), OneMinusEpsilon)
+	return math.Min(float64(reversedDigits*invBaseN), math.OneMinusEpsilon)
 }
 
 func RadicalInverse(baseIndex, a uint64) float64 {

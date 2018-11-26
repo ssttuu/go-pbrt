@@ -1,8 +1,9 @@
 package pbrt
 
 import (
-	"math"
 	"fmt"
+
+	"github.com/stupschwartz/go-pbrt/pkg/math"
 )
 
 const (
@@ -175,7 +176,7 @@ func (s Spectrum) DivScalar(other float64) Spectrum {
 
 func (s Spectrum) Clamp(low, high float64) Spectrum {
 	for i := 0; i < len(s); i++ {
-		s[i] = Clamp(s[i], low, high)
+		s[i] = math.Clamp(s[i], low, high)
 	}
 	return s
 }

@@ -2,9 +2,9 @@ package geometry
 
 import (
 	"testing"
+
 	"github.com/stretchr/testify/assert"
 )
-
 
 func TestXYZFloat64_Abs(t *testing.T) {
 	x := &XYZFloat64{-1.0, -2.0, -3.0}

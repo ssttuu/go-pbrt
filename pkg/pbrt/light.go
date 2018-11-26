@@ -3,13 +3,13 @@
 package pbrt
 
 import (
-	"math"
+	"github.com/stupschwartz/go-pbrt/pkg/math"
 )
 
 type LightFlag int
 
 const (
-	LightFlagDeltaPosition  = 1 << iota
+	LightFlagDeltaPosition = 1 << iota
 	LightFlagDeltaDirection
 	LightFlagArea
 	LightFlagInfinite
@@ -27,84 +27,73 @@ type Light interface {
 	SampleLi(ref Interaction, u *Point2f) (s Spectrum, wi *Vector3f, pdf float64, vis *VisibilityTester)
 	Power() Spectrum
 	Le(r *RayDifferential) Spectrum
-	PdfLi(ref Interaction) (float64, *Vector3f)
+	PdfLi(ref Interaction, wi *Vector3f) float64
 	SampleLe(u1, u2 *Point2f, time float64) (s Spectrum, r *Ray, nLight *Normal3f, pdfPos, pdfDir float64)
 	PdfLe(r *Ray, nLight *Normal3f) (pdfPos, pdfDir float64)
 }
 
-type light struct {
-	flags                      LightFlag
-	nSamples                   int
-	MediumAccessor             *MediumAccessor
-	lightToWorld, worldToLight *Transform
-}
-
-func NewLight(flags LightFlag, lightToWorld *Transform, mediumAccessor *MediumAccessor, nSamples int) *light {
-	return &light{
-		flags:          flags,
-		nSamples:       int(math.Max(1.0, float64(nSamples))),
-		MediumAccessor: mediumAccessor,
-		lightToWorld:   lightToWorld,
-		worldToLight:   lightToWorld.Inverse(),
-	}
-}
-
-func (l *light) GetFlags() LightFlag {
-	return l.flags
-}
-
-func (l *light) GetSamples() int {
-	return l.nSamples
-}
-
-func (l *light) Le(r *RayDifferential) Spectrum {
-	return NewSpectrum(0)
-}
-
-func (l *light) Preprocess() {
-
+func Le(r *RayDifferential) Spectrum {
+	return NewSpectrum(0.0)
 }
 
 type PointLight struct {
-	*light
+	flags          LightFlag
+	nSamples       int
+	MediumAccessor *MediumAccessor
+	lightToWorld   *Transform
+	worldToLight   *Transform
 
 	pLight *Point3f
-	i      Spectrum
+	I      Spectrum
 }
 
 func NewPointLight(lightToWorld *Transform, mediumAccessor *MediumAccessor, i Spectrum) Light {
+	p, _ := lightToWorld.TransformPoint(&Point3f{0, 0, 0}, new(Vector3f))
 	return &PointLight{
-		light:  NewLight(LightFlagDeltaPosition, lightToWorld, mediumAccessor, 1),
-		pLight: lightToWorld.TransformPoint(&Point3f{0, 0, 0}),
-		i:      i,
+		flags:          LightFlagDeltaPosition,
+		nSamples:       1,
+		MediumAccessor: mediumAccessor,
+		lightToWorld:   lightToWorld,
+		worldToLight:   lightToWorld.Inverse(),
+		pLight:         p,
+		I:              i,
 	}
+}
+
+func (l *PointLight) GetFlags() LightFlag {
+	return l.flags
+}
+
+func (l *PointLight) GetSamples() int {
+	return l.nSamples
+}
+
+func (l *PointLight) Preprocess() {
+
 }
 
 func (l *PointLight) SampleLi(ref Interaction, u *Point2f) (s Spectrum, wi *Vector3f, pdf float64, vis *VisibilityTester) {
 	wi = l.pLight.Sub(ref.GetPoint()).Normalized()
 	pdf = 1.0
-	vis = NewVisibilityTester(ref, NewInteraction(l.pLight, new(Normal3f), new(Vector3f), ref.GetTime(), l.MediumAccessor))
-	return l.i.DivScalar(l.pLight.DistanceSquared(ref.GetPoint())), wi, pdf, vis
+	vis = NewVisibilityTester(ref, NewInteraction(l.pLight, new(Vector3f), new(Vector3f), new(Vector3f), ref.GetTime(), l.MediumAccessor))
+	return l.I.DivScalar(l.pLight.DistanceSquared(ref.GetPoint())), wi, pdf, vis
 }
 
 func (l *PointLight) Power() Spectrum {
-	return l.i.MulScalar(4 * Pi)
+	return l.I.MulScalar(4 * math.Pi)
 }
 
 func (l *PointLight) Le(r *RayDifferential) Spectrum {
-	return NewSpectrum(0.0)
+	return Le(r)
 }
 
-func (l *PointLight) PdfLi(ref Interaction) (float64, *Vector3f) {
-	return 0, nil
+func (l *PointLight) PdfLi(ref Interaction, wi *Vector3f) float64 {
+	return 0
 }
 
 func (l *PointLight) SampleLe(u1, u2 *Point2f, time float64) (s Spectrum, r *Ray, nLight *Normal3f, pdfPos, pdfDir float64) {
 	r = NewRayWithMedium(l.pLight, UniformSampleSphere(u1), time, l.MediumAccessor.Inside)
-	nLight = r.direction
-	pdfPos = 1
-	pdfDir = UniformSpherePdf()
-	return l.i, r, nLight, pdfPos, pdfDir
+	return l.I, r, r.Direction, 1, UniformSpherePdf()
 }
 
 func (l *PointLight) PdfLe(r *Ray, nLight *Normal3f) (pdfPos, pdfDir float64) {
@@ -122,11 +111,11 @@ func NewVisibilityTester(p0, p1 Interaction) *VisibilityTester {
 	}
 }
 
-func (v *VisibilityTester) Unoccluded(s *Scene) bool {
+func (v *VisibilityTester) Unoccluded(s Scene) bool {
 	return !s.IntersectP(v.p0.SpawnRayToInteraction(v.p1))
 }
 
-func (v *VisibilityTester) Tr(scene *Scene, sampler Sampler) Spectrum {
+func (v *VisibilityTester) Tr(scene Scene, sampler Sampler) Spectrum {
 	ray := v.p0.SpawnRayToInteraction(v.p1)
 	Tr := NewSpectrum(1)
 	for {
@@ -138,8 +127,8 @@ func (v *VisibilityTester) Tr(scene *Scene, sampler Sampler) Spectrum {
 		}
 
 		// update transmittance for current ray segment
-		if ray.medium != nil {
-			Tr.MulAssign(ray.medium.Tr(ray, sampler))
+		if ray.Medium != nil {
+			Tr.MulAssign(ray.Medium.Tr(ray, sampler))
 		}
 
 		// generate next ray segment or return final transmittance
@@ -158,12 +147,19 @@ type AreaLighter interface {
 }
 
 type AreaLight struct {
-	*light
+	flags                      LightFlag
+	nSamples                   int
+	MediumAccessor             *MediumAccessor
+	lightToWorld, worldToLight *Transform
 }
 
 func NewAreaLight(lightToWorld *Transform, mediumAccessor *MediumAccessor, nSamples int) *AreaLight {
 	return &AreaLight{
-		light: NewLight(LightFlagArea, lightToWorld, mediumAccessor, nSamples),
+		flags:          LightFlagArea,
+		nSamples:       nSamples,
+		MediumAccessor: mediumAccessor,
+		lightToWorld:   lightToWorld,
+		worldToLight:   lightToWorld.Inverse(),
 	}
 }
 
@@ -217,8 +213,8 @@ func (l *DiffuseAreaLight) SampleLi(ref Interaction, u *Point2f) (s Spectrum, wi
 	return l.L(pShape, wi.MulScalar(-1)), wi, pdf, vis
 }
 
-func (l *DiffuseAreaLight) PdfLi(ref Interaction) (float64, *Vector3f) {
-	return l.shape.PdfWi(ref)
+func (l *DiffuseAreaLight) PdfLi(ref Interaction, wi *Vector3f) float64 {
+	return l.shape.PdfWi(ref, wi)
 }
 
 func (l *DiffuseAreaLight) SampleLe(u1, u2 *Point2f, time float64) (s Spectrum, r *Ray, nLight *Normal3f, pdfPos, pdfDir float64) {
@@ -232,10 +228,10 @@ func (l *DiffuseAreaLight) SampleLe(u1, u2 *Point2f, time float64) (s Spectrum, 
 		// choose a side to sample and then remap u[0] to [0,1] before
 		// applying cosine-weighted hemispher sampling for the chose side.
 		if u.X < 0.5 {
-			u.X = math.Min(u.X*2, OneMinusEpsilon)
+			u.X = math.Min(u.X*2, math.OneMinusEpsilon)
 			w = CosineSampleHemisphere(u)
 		} else {
-			u.X = math.Min((u.X-0.5)*2, OneMinusEpsilon)
+			u.X = math.Min((u.X-0.5)*2, math.OneMinusEpsilon)
 			w = CosineSampleHemisphere(u)
 			w.Z *= -1
 		}
@@ -251,12 +247,12 @@ func (l *DiffuseAreaLight) SampleLe(u1, u2 *Point2f, time float64) (s Spectrum, 
 }
 
 func (l *DiffuseAreaLight) PdfLe(r *Ray, n *Normal3f) (pdfPos, pdfDir float64) {
-	it := NewInteraction(r.Origin, n, n, r.time, l.MediumAccessor)
+	it := NewInteraction(r.Origin, &Vector3f{}, n, n, r.Time, l.MediumAccessor)
 	pdfPos = l.shape.Pdf(it)
 	if l.twoSided {
-		pdfPos = 0.5 * CosineHemispherePdf(n.AbsDot(r.direction))
+		pdfPos = 0.5 * CosineHemispherePdf(n.AbsDot(r.Direction))
 	} else {
-		pdfPos = CosineHemispherePdf(n.AbsDot(r.direction))
+		pdfPos = CosineHemispherePdf(n.AbsDot(r.Direction))
 	}
 	return pdfPos, pdfDir
 }

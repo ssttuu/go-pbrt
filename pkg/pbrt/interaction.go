@@ -2,9 +2,7 @@
 
 package pbrt
 
-import (
-	"math"
-)
+import "github.com/stupschwartz/go-pbrt/pkg/math"
 
 type Interaction interface {
 	//IsSurfaceInteraction() bool
@@ -15,7 +13,7 @@ type Interaction interface {
 	SpawnRayToInteraction(to Interaction) *Ray
 
 	GetPoint() *Point3f
-	//GetPointError() *Vector3f
+	GetPointError() *Vector3f
 	GetTime() float64
 	GetNormal() *Normal3f
 	//GetMedium(*Vector3f) *Medium
@@ -24,15 +22,17 @@ type Interaction interface {
 
 type interaction struct {
 	Point          *Point3f
+	PointError     *Vector3f
 	time           float64
 	wo             *Vector3f
 	Normal         *Normal3f
 	mediumAccessor *MediumAccessor
 }
 
-func NewInteraction(p *Point3f, n *Normal3f, wo *Vector3f, time float64, mediumAccessor *MediumAccessor) *interaction {
+func NewInteraction(p *Point3f, pError *Vector3f, n *Normal3f, wo *Vector3f, time float64, mediumAccessor *MediumAccessor) *interaction {
 	return &interaction{
 		Point:          p,
+		PointError:     pError,
 		Normal:         n,
 		wo:             wo,
 		time:           time,
@@ -42,6 +42,10 @@ func NewInteraction(p *Point3f, n *Normal3f, wo *Vector3f, time float64, mediumA
 
 func (i *interaction) GetPoint() *Point3f {
 	return i.Point
+}
+
+func (i *interaction) GetPointError() *Vector3f {
+	return i.PointError
 }
 
 func (i *interaction) GetNormal() *Normal3f {
@@ -57,22 +61,26 @@ func (i *interaction) SetMediumAccessor(accessor *MediumAccessor) {
 }
 
 func (i *interaction) SpawnRay(direction *Vector3f) *Ray {
-	return &Ray{i.Point, direction, Infinity, i.time, i.GetMedium(direction)}
+	origin := OffsetRayOrigin(i.Point, i.PointError, i.Normal, direction)
+	return &Ray{origin, direction, math.Infinity, i.time, i.GetMedium(direction)}
 }
 
 func (i *interaction) SpawnRayToPoint(p *Point3f) *Ray {
 	direction := p.Sub(i.Point)
-	return &Ray{i.Point, direction, 1 - ShadowEpsilon, i.time, i.GetMedium(direction)}
+	origin := OffsetRayOrigin(i.Point, i.PointError, i.Normal, direction)
+	return &Ray{origin, direction, 1 - math.ShadowEpsilon, i.time, i.GetMedium(direction)}
 }
 
 func (i *interaction) SpawnRayToInteraction(to Interaction) *Ray {
-	direction := to.GetPoint().Sub(i.Point)
+	origin := OffsetRayOrigin(i.Point, i.PointError, i.Normal, to.GetPoint().Sub(i.Point))
+	target := OffsetRayOrigin(to.GetPoint(), to.GetPointError(), to.GetNormal(), origin.Sub(to.GetPoint()))
+	direction := target.Sub(origin)
 	return &Ray{
 		Origin:    i.Point,
-		direction: direction,
-		tMax:      1 - ShadowEpsilon,
-		time:      i.time,
-		medium:    i.GetMedium(direction),
+		Direction: direction,
+		TMax:      1 - math.ShadowEpsilon,
+		Time:      i.time,
+		Medium:    i.GetMedium(direction),
 	}
 }
 
@@ -93,7 +101,7 @@ func (i *interaction) GetMedium(w *Vector3f) Medium {
 
 func PhaseHG(cosTheta float64, g float64) float64 {
 	denom := 1.0 + g*g + 2*g*cosTheta
-	return Inv4Pi * (1.0 - g*g) / (denom * math.Sqrt(denom))
+	return math.Inv4Pi * (1.0 - g*g) / (denom * math.Sqrt(denom))
 }
 
 type Shading struct {
@@ -130,12 +138,12 @@ func NewSurfaceInteraction() *SurfaceInteraction {
 			Normal:         new(Normal3f),
 			mediumAccessor: nil,
 		},
-		uv:     new(Point2f),
-		dpdu:   new(Vector3f),
-		dpdv:   new(Vector3f),
-		dndu:   new(Normal3f),
-		dndv:   new(Normal3f),
-		shape:  nil,
+		uv:    new(Point2f),
+		dpdu:  new(Vector3f),
+		dpdv:  new(Vector3f),
+		dndu:  new(Normal3f),
+		dndv:  new(Normal3f),
+		shape: nil,
 		shading: &Shading{
 			normal: new(Normal3f),
 			dpdu:   new(Vector3f),
@@ -148,23 +156,24 @@ func NewSurfaceInteraction() *SurfaceInteraction {
 	}
 }
 
-func NewSurfaceInteractionWith(p *Point3f, uv *Point2f, wo *Vector3f, dpdu, dpdv *Vector3f, dndu, dndv *Normal3f, time float64, shape Shape, faceIndex int) *SurfaceInteraction {
+func NewSurfaceInteractionWith(p *Point3f, pError *Vector3f, uv *Point2f, wo *Vector3f, dpdu, dpdv *Vector3f, dndu, dndv *Normal3f, time float64, shape Shape, faceIndex int) *SurfaceInteraction {
 	normal := dpdu.Cross(dpdv).Normalized()
 
 	return &SurfaceInteraction{
 		interaction: &interaction{
-			Point:  p,
-			time:   time,
-			wo:     wo,
-			Normal: normal,
+			Point:      p,
+			PointError: pError,
+			time:       time,
+			wo:         wo,
+			Normal:     normal,
 		},
 		//bssrdf: new(BSSRDF),
-		uv:     uv,
-		dpdu:   dpdu,
-		dpdv:   dpdv,
-		dndu:   dndu,
-		dndv:   dndv,
-		shape:  shape,
+		uv:    uv,
+		dpdu:  dpdu,
+		dpdv:  dpdv,
+		dndu:  dndu,
+		dndv:  dndv,
+		shape: shape,
 		shading: &Shading{
 			normal: normal,
 			dpdu:   dpdu,

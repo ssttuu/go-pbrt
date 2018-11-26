@@ -1,6 +1,6 @@
 package pbrt
 
-import "math"
+import "github.com/stupschwartz/go-pbrt/pkg/math"
 
 type Distribution1D struct {
 	Func, Cdf []float64
@@ -17,17 +17,17 @@ func NewDistribution1D(f []float64) *Distribution1D {
 	// compute integral of step function at xi
 	d.Cdf[0] = 0
 	for i := 1; i < n+1; i++ {
-		d.Cdf[i] = d.Cdf[i - 1] + d.Func[i - 1] / float64(n)
+		d.Cdf[i] = d.Cdf[i-1] + d.Func[i-1]/float64(n)
 	}
 
 	// transform step function integral into CDF
 	d.FuncInt = d.Cdf[n]
 	if d.FuncInt == 0.0 {
-		for i := 1; i < n + 1; i++ {
+		for i := 1; i < n+1; i++ {
 			d.Cdf[i] = float64(i) / float64(n)
 		}
 	} else {
-		for i := 1; i < n + 1; i++ {
+		for i := 1; i < n+1; i++ {
 			d.Cdf[i] /= d.FuncInt
 		}
 	}
@@ -40,7 +40,7 @@ func (d *Distribution1D) Count() int {
 }
 
 func (d *Distribution1D) SampleDiscrete(u float64) (value int, pdf float64, uRemapped float64) {
-	offset := FindInterval(len(d.Cdf), func (index int) bool {
+	offset := math.FindInterval(len(d.Cdf), func(index int) bool {
 		return d.Cdf[index] <= u
 	})
 
@@ -49,7 +49,7 @@ func (d *Distribution1D) SampleDiscrete(u float64) (value int, pdf float64, uRem
 		pdf = d.Func[offset] / (d.FuncInt / float64(d.Count()))
 	}
 
-	uRemapped = (u - d.Cdf[offset]) / (d.Cdf[offset + 1] - d.Cdf[offset])
+	uRemapped = (u - d.Cdf[offset]) / (d.Cdf[offset+1] - d.Cdf[offset])
 
 	return offset, pdf, uRemapped
 
@@ -57,13 +57,13 @@ func (d *Distribution1D) SampleDiscrete(u float64) (value int, pdf float64, uRem
 
 func UniformSampleHemisphere(u *Point2f) *Vector3f {
 	z := u.X
-	r := math.Sqrt(math.Max(0, 1.0 - z * z))
+	r := math.Sqrt(math.Max(0, 1.0-z*z))
 	phi := 2 * math.Pi * u.Y
 	return &Vector3f{r * math.Cos(phi), r * math.Sin(phi), z}
 }
 
 func UniformHemispherePdf() float64 {
-	return Inv2Pi
+	return math.Inv2Pi
 }
 
 func UniformSampleSphere(u *Point2f) *Vector3f {
@@ -74,7 +74,7 @@ func UniformSampleSphere(u *Point2f) *Vector3f {
 }
 
 func UniformSpherePdf() float64 {
-	return Inv4Pi
+	return math.Inv4Pi
 }
 
 func UniformConePdf(cosThetaMax float64) float64 {
@@ -93,10 +93,10 @@ func ConcentricSampleDisk(u *Point2f) *Point2f {
 	var theta, r float64
 	if math.Abs(uOffset.X) > math.Abs(uOffset.Y) {
 		r = uOffset.X
-		theta = PiOver4 * (uOffset.Y / uOffset.X)
+		theta = math.PiOver4 * (uOffset.Y / uOffset.X)
 	} else {
 		r = uOffset.Y
-		theta = PiOver2 - PiOver4*(uOffset.X/uOffset.Y)
+		theta = math.PiOver2 - math.PiOver4*(uOffset.X/uOffset.Y)
 	}
 	return new(Point2f).Set(math.Cos(theta), math.Sin(theta)).MulScalar(r)
 }
@@ -108,7 +108,7 @@ func CosineSampleHemisphere(u *Point2f) *Vector3f {
 }
 
 func CosineHemispherePdf(cosTheta float64) float64 {
-	return cosTheta * InvPi
+	return cosTheta * math.InvPi
 }
 
 func BalanceHeuristic(nf int, fPdf float64, ng int, gPdf float64) float64 {

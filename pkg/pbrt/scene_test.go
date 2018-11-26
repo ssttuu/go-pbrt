@@ -2,9 +2,10 @@ package pbrt_test
 
 import (
 	"testing"
+
 	"github.com/golang/mock/gomock"
-	"github.com/stupschwartz/go-pbrt/pkg/pbrt"
 	"github.com/stretchr/testify/assert"
+	"github.com/stupschwartz/go-pbrt/pkg/pbrt"
 )
 
 func TestScene_Intersect(t *testing.T) {
@@ -12,10 +13,13 @@ func TestScene_Intersect(t *testing.T) {
 	defer ctrl.Finish()
 
 	aggregate := pbrt.NewMockAggregate(ctrl)
+	aggregate.
+		EXPECT().
+		WorldBound().
+		Times(1).
+		Return(&pbrt.Bounds3{})
 
-	scene := &pbrt.Scene{
-		Aggregate: aggregate,
-	}
+	scene := pbrt.NewScene(aggregate, []pbrt.Light{}, []pbrt.Light{})
 
 	ray := pbrt.NewRay(&pbrt.Point3f{}, &pbrt.Vector3f{}, 0)
 	si := pbrt.NewSurfaceInteraction()
@@ -36,9 +40,13 @@ func TestScene_IntersectP(t *testing.T) {
 
 	aggregate := pbrt.NewMockAggregate(ctrl)
 
-	scene := &pbrt.Scene{
-		Aggregate: aggregate,
-	}
+	aggregate.
+		EXPECT().
+		WorldBound().
+		Times(1).
+		Return(&pbrt.Bounds3{})
+
+	scene := pbrt.NewScene(aggregate, []pbrt.Light{}, []pbrt.Light{})
 
 	ray := pbrt.NewRay(&pbrt.Point3f{}, &pbrt.Vector3f{}, 0)
 
@@ -60,9 +68,13 @@ func TestScene_IntersectTr(t *testing.T) {
 	primitive := pbrt.NewMockPrimitive(ctrl)
 	material := pbrt.NewMockMaterial(ctrl)
 
-	scene := &pbrt.Scene{
-		Aggregate: aggregate,
-	}
+	aggregate.
+		EXPECT().
+		WorldBound().
+		Times(1).
+		Return(&pbrt.Bounds3{})
+
+	scene := pbrt.NewScene(aggregate, []pbrt.Light{}, []pbrt.Light{})
 
 	ray := pbrt.NewRay(&pbrt.Point3f{}, &pbrt.Vector3f{}, 0)
 	si := pbrt.NewSurfaceInteraction()
