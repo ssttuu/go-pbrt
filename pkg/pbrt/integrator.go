@@ -1,30 +1,31 @@
 package pbrt
 
 import (
-	"math"
-	"log"
 	"context"
-	"golang.org/x/sync/errgroup"
-	"github.com/pkg/errors"
 	"fmt"
+	"log"
+	"math"
+
+	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 )
 
 type Integrator interface {
 	GetSampler() Sampler
 	GetCamera() Camera
 
-	Preprocess(scene *Scene, sampler Sampler)
-	//Render(scene *Scene)
-	Li(ctx context.Context, ray *RayDifferential, scene *Scene, sampler Sampler, depth int) Spectrum
-	SpecularReflect(ctx context.Context, ray *RayDifferential, si *SurfaceInteraction, scene *Scene, sampler Sampler, depth int) Spectrum
-	SpecularTransmit(ctx context.Context, ray *RayDifferential, si *SurfaceInteraction, scene *Scene, sampler Sampler, depth int) Spectrum
+	Preprocess(scene Scene, sampler Sampler)
+	//Render(scene Scene)
+	Li(ctx context.Context, ray *RayDifferential, scene Scene, sampler Sampler, depth int) Spectrum
+	SpecularReflect(ctx context.Context, ray *RayDifferential, si *SurfaceInteraction, scene Scene, sampler Sampler, depth int) Spectrum
+	SpecularTransmit(ctx context.Context, ray *RayDifferential, si *SurfaceInteraction, scene Scene, sampler Sampler, depth int) Spectrum
 }
 
-func UniformSampleAllLights(it Interaction, scene *Scene, sampler Sampler, nLightSamples []int, handleMedia bool) Spectrum {
+func UniformSampleAllLights(it Interaction, scene Scene, sampler Sampler, nLightSamples []int, handleMedia bool) Spectrum {
 	L := NewSpectrum(0)
-	for j, light := range scene.Lights {
+	for j, light := range scene.Lights() {
 		// accumulate contribution of jth light to L
-		//light := scene.Lights[j]
+		//light := scene.lights[j]
 		nSamples := nLightSamples[j]
 		uLightSlice := sampler.Get2DArray(nSamples)
 		uScatteringSlice := sampler.Get2DArray(nSamples)
@@ -45,9 +46,9 @@ func UniformSampleAllLights(it Interaction, scene *Scene, sampler Sampler, nLigh
 	return L
 }
 
-func UniformSampleOneLight(it Interaction, scene *Scene, sampler Sampler, handleMedia bool, lightDistrib *Distribution1D) Spectrum {
+func UniformSampleOneLight(it Interaction, scene Scene, sampler Sampler, handleMedia bool, lightDistrib *Distribution1D) Spectrum {
 	// randomly choose a single light to sample
-	nLights := len(scene.Lights)
+	nLights := len(scene.Lights())
 	if nLights == 0 {
 		return NewSpectrum(0)
 	}
@@ -63,7 +64,7 @@ func UniformSampleOneLight(it Interaction, scene *Scene, sampler Sampler, handle
 		lightPdf = 1.0 / float64(nLights)
 	}
 
-	light := scene.Lights[lightNum]
+	light := scene.Light(lightNum)
 	uLight := sampler.Get2D()
 	uScattering := sampler.Get2D()
 
@@ -72,7 +73,7 @@ func UniformSampleOneLight(it Interaction, scene *Scene, sampler Sampler, handle
 	return spectrum
 }
 
-func EstimateDirect(it Interaction, uScattering *Point2f, light Light, uLight *Point2f, scene *Scene, sampler Sampler, handleMedia bool, specular bool) Spectrum {
+func EstimateDirect(it Interaction, uScattering *Point2f, light Light, uLight *Point2f, scene Scene, sampler Sampler, handleMedia bool, specular bool) Spectrum {
 	bsdfFlags := BSDFAll
 	if !specular {
 		bsdfFlags = BxDFType(BSDFAll &^ BSDFSpecular)
@@ -99,9 +100,6 @@ func EstimateDirect(it Interaction, uScattering *Point2f, light Light, uLight *P
 			log.Panicf("UnknownInteraction: %+v\n", intr)
 		}
 
-		// FIXME: remove
-		return f
-
 		if !f.IsBlack() {
 			// compute effect of visibility for light source sample
 			if handleMedia {
@@ -112,11 +110,14 @@ func EstimateDirect(it Interaction, uScattering *Point2f, light Light, uLight *P
 					Li = NewSpectrum(0)
 				} else {
 					// Shadow ray unoccluded
+					fmt.Println("shadow ray unoccluded")
+					//log.Panic("SHADOW RAY FINALLY UNOCCLUDED")
 				}
 			}
 
 			// add light's contribution to reflected radiance
 			if !Li.IsBlack() {
+				//fmt.Println("Li not black", IsDeltaLight(light.GetFlags()))
 				if IsDeltaLight(light.GetFlags()) {
 					Ld.AddAssign(f.Mul(Li).DivScalar(lightPdf))
 				} else {
@@ -125,64 +126,69 @@ func EstimateDirect(it Interaction, uScattering *Point2f, light Light, uLight *P
 				}
 			}
 		}
+	}
 
-		// sample SDF with multiple importance sampling
-		if !IsDeltaLight(light.GetFlags()) {
-			var f Spectrum
-			sampledSpecular := false
-			switch intr := it.(type) {
-			case *SurfaceInteraction:
-				// sample scattered direction for surface interactions
-				var sampledType BxDFType
-				f, wi, scatteringPdf, sampledType = intr.BSDF.SampleF(intr.wo, uScattering, bsdfFlags)
-				f.MulScalar(wi.AbsDot(intr.shading.normal))
-				sampledSpecular = sampledType&BSDFSpecular != 0
-			case *MediumInteraction:
-				// sample scattered direction for medium interactions
-				p := intr.phase.SampleP(intr.wo, wi, uScattering)
-				f = NewSpectrum(p)
-				scatteringPdf = p
+	// FIXME: remove
+	return Ld
+
+	// sample SDF with multiple importance sampling
+	if !IsDeltaLight(light.GetFlags()) {
+		var f Spectrum
+		sampledSpecular := false
+		switch intr := it.(type) {
+		case *SurfaceInteraction:
+			// sample scattered Direction for surface interactions
+			var sampledType BxDFType
+			f, wi, scatteringPdf, sampledType = intr.BSDF.SampleF(intr.wo, uScattering, bsdfFlags)
+			f.MulScalar(wi.AbsDot(intr.shading.normal))
+			sampledSpecular = sampledType&BSDFSpecular != 0
+		case *MediumInteraction:
+			// sample scattered Direction for Medium interactions
+			p := intr.phase.SampleP(intr.wo, wi, uScattering)
+			f = NewSpectrum(p)
+			scatteringPdf = p
+		default:
+			log.Panic(intr)
+		}
+
+		if !f.IsBlack() && scatteringPdf > 0.0 {
+
+			// Account for light contributions along sampled Direction wi
+			weight := 1.0
+			if !sampledSpecular {
+				lightPdf = light.PdfLi(it, wi)
+				if lightPdf == 0 {
+					return Ld
+				}
+				weight = PowerHeuristic(1.0, scatteringPdf, 1.0, lightPdf)
 			}
 
-			if !f.IsBlack() && scatteringPdf > 0.0 {
+			// find intersection and compute transmittance
+			ray := it.SpawnRay(wi)
+			Tr := NewSpectrum(1.0)
+			var foundSurfaceInteraction bool
+			lightSI := NewSurfaceInteraction()
+			if handleMedia {
+				foundSurfaceInteraction = scene.IntersectTr(ray, lightSI, sampler, Tr)
+			} else {
+				foundSurfaceInteraction = scene.Intersect(ray, lightSI)
+			}
 
-				// Account for light contributions along sampled direction wi
-				weight := 1.0
-				if !sampledSpecular {
-					lightPdf, wi = light.PdfLi(it)
-					if lightPdf == 0 {
-						return Ld
-					}
-					weight = PowerHeuristic(1.0, scatteringPdf, 1.0, lightPdf)
+			// add light contribution from material sampling
+			Li := NewSpectrum(0)
+			if foundSurfaceInteraction {
+				if lightSI.Primitive.GetAreaLight() == light {
+					Li = lightSI.Le(wi.MulScalar(-1))
 				}
-
-				// find intersection and compute transmittance
-				ray := it.SpawnRay(wi)
-				Tr := NewSpectrum(1.0)
-				var foundSurfaceInteraction bool
-				lightSI := NewSurfaceInteraction()
-				if handleMedia {
-					foundSurfaceInteraction = scene.IntersectTr(ray, lightSI, sampler, Tr)
-				} else {
-					foundSurfaceInteraction = scene.Intersect(ray, lightSI)
-				}
-
-				// add light contribution from material sampling
-				Li := NewSpectrum(0)
-				if foundSurfaceInteraction {
-					if lightSI.Primitive.GetAreaLight() == light {
-						Li = lightSI.Le(wi.MulScalar(-1))
-					}
-				} else {
-					Li = light.Le(NewRayDifferentialFromRay(ray))
-				}
-				if !Li.IsBlack() {
-					Ld.AddAssign(
-						f.Mul(Li).
-							Mul(Tr).
-							MulScalar(weight / scatteringPdf),
-					)
-				}
+			} else {
+				Li = light.Le(NewRayDifferentialFromRay(ray))
+			}
+			if !Li.IsBlack() {
+				Ld.AddAssign(
+					f.Mul(Li).
+						Mul(Tr).
+						MulScalar(weight / scatteringPdf),
+				)
 			}
 		}
 	}
@@ -212,7 +218,7 @@ func (s *SamplerIntegrator) GetCamera() Camera {
 	return s.camera
 }
 
-func (s *SamplerIntegrator) Preprocess(scene *Scene, sampler Sampler) {
+func (s *SamplerIntegrator) Preprocess(scene Scene, sampler Sampler) {
 
 }
 
@@ -221,7 +227,7 @@ type RenderableTile struct {
 	Bounds  Bounds2i
 }
 
-func renderWorker(ctx context.Context, s Integrator, scene *Scene, tiles <-chan RenderableTile, progress chan<- bool) func() error {
+func renderWorker(ctx context.Context, s Integrator, scene Scene, tiles <-chan RenderableTile, progress chan<- bool) func() error {
 	return func() error {
 		for rt := range tiles {
 			camera := s.GetCamera()
@@ -269,7 +275,6 @@ func renderWorker(ctx context.Context, s Integrator, scene *Scene, tiles <-chan 
 					// merge image tile into film
 					//camera.GetFilm().MergeFilmTile(filmTile)
 
-
 				}
 			}
 
@@ -285,7 +290,7 @@ func renderWorker(ctx context.Context, s Integrator, scene *Scene, tiles <-chan 
 	}
 }
 
-func Render(ctx context.Context, s Integrator, scene *Scene, tileSize int64) error {
+func Render(ctx context.Context, s Integrator, scene Scene, tileSize int64) error {
 	s.Preprocess(scene, s.GetSampler())
 	// render image tiles in parallel
 	camera := s.GetCamera()
@@ -311,7 +316,7 @@ func Render(ctx context.Context, s Integrator, scene *Scene, tileSize int64) err
 
 	go func() {
 		i := float64(0)
-		total := float64(nTiles.X * nTiles.Y)/100
+		total := float64(nTiles.X*nTiles.Y) / 100
 		for range progress {
 			i++
 			fmt.Printf("Progress: %.2f%%\n", i/total)
@@ -359,11 +364,11 @@ func Render(ctx context.Context, s Integrator, scene *Scene, tileSize int64) err
 	return nil
 }
 
-func (s *SamplerIntegrator) Li(ctx context.Context, ray *RayDifferential, scene *Scene, sampler Sampler, depth int) Spectrum {
+func (s *SamplerIntegrator) Li(ctx context.Context, ray *RayDifferential, scene Scene, sampler Sampler, depth int) Spectrum {
 	return nil
 }
 
-func (s *SamplerIntegrator) SpecularReflect(ctx context.Context, ray *RayDifferential, si *SurfaceInteraction, scene *Scene, sampler Sampler, depth int) Spectrum {
+func (s *SamplerIntegrator) SpecularReflect(ctx context.Context, ray *RayDifferential, si *SurfaceInteraction, scene Scene, sampler Sampler, depth int) Spectrum {
 	wo := si.wo
 	t := BxDFType(BSDFReflection | BSDFSpecular)
 	f, wi, pdf, t := si.BSDF.SampleF(wo, sampler.Get2D(), t)
@@ -394,7 +399,7 @@ func (s *SamplerIntegrator) SpecularReflect(ctx context.Context, ray *RayDiffere
 	return NewSpectrum(0)
 }
 
-func (s *SamplerIntegrator) SpecularTransmit(ctx context.Context, ray *RayDifferential, si *SurfaceInteraction, scene *Scene, sampler Sampler, depth int) Spectrum {
+func (s *SamplerIntegrator) SpecularTransmit(ctx context.Context, ray *RayDifferential, si *SurfaceInteraction, scene Scene, sampler Sampler, depth int) Spectrum {
 	wo := si.wo
 	f, wi, pdf, _ := si.BSDF.SampleF(wo, sampler.Get2D(), BxDFType(BSDFTransmission|BSDFSpecular))
 
@@ -460,16 +465,16 @@ func NewDirectLightingIntegrator(strategy LightStrategy, maxDepth int, camera Ca
 	}
 }
 
-func (dli *DirectLightingIntegrator) Preprocess(scene *Scene, sampler Sampler) {
+func (dli *DirectLightingIntegrator) Preprocess(scene Scene, sampler Sampler) {
 	if dli.strategy == UniformSampleAll {
 		// compute number of samples to use for each light
-		for i := 0; i < len(scene.Lights); i++ {
-			dli.nLightSamples = append(dli.nLightSamples, sampler.RoundCount(scene.Lights[i].GetSamples()))
+		for i := 0; i < len(scene.Lights()); i++ {
+			dli.nLightSamples = append(dli.nLightSamples, sampler.RoundCount(scene.Light(i).GetSamples()))
 		}
 
-		// request samples for sampling all Lights
+		// request samples for sampling all lights
 		for i := 0; i < dli.maxDepth; i++ {
-			for j := 0; j < len(scene.Lights); j++ {
+			for j := 0; j < len(scene.Lights()); j++ {
 				sampler.Request2DArray(dli.nLightSamples[j])
 				sampler.Request2DArray(dli.nLightSamples[j])
 			}
@@ -477,15 +482,15 @@ func (dli *DirectLightingIntegrator) Preprocess(scene *Scene, sampler Sampler) {
 	}
 }
 
-func (dli *DirectLightingIntegrator) Li(ctx context.Context, ray *RayDifferential, scene *Scene, sampler Sampler, depth int) Spectrum {
+func (dli *DirectLightingIntegrator) Li(ctx context.Context, ray *RayDifferential, scene Scene, sampler Sampler, depth int) Spectrum {
 	L := NewSpectrum(0)
 
 	// find closest ray intersection or return background radiance
 	si := NewSurfaceInteraction()
 	intersects := scene.Intersect(ray.Ray, si)
 	if !intersects {
-		for i := 0; i < len(scene.Lights); i++ {
-			L.AddAssign(scene.Lights[i].Le(NewRayDifferentialFromRay(ray.Ray)))
+		for i := 0; i < len(scene.Lights()); i++ {
+			L.AddAssign(scene.Light(i).Le(NewRayDifferentialFromRay(ray.Ray)))
 		}
 		return L
 	}
@@ -494,14 +499,14 @@ func (dli *DirectLightingIntegrator) Li(ctx context.Context, ray *RayDifferentia
 	// TODO
 	si.ComputeScatteringFunctions(ray, false, Radiance)
 	if si.BSDF == nil {
-		return NewSpectrum(0.0)
-		return dli.Li(ctx, NewRayDifferentialFromRay(si.SpawnRay(ray.direction)), scene, sampler, depth)
+		return NewSpectrum(1.0)
+		return dli.Li(ctx, NewRayDifferentialFromRay(si.SpawnRay(ray.Direction)), scene, sampler, depth)
 	}
 
 	//compute emitted light if ray hit an area light source
 	L.AddAssign(si.Le(si.wo))
 
-	if len(scene.Lights) > 0 {
+	if len(scene.Lights()) > 0 {
 		// compute direct lighting for DirectLightingIntegrator integrator
 		switch dli.strategy {
 		case UniformSampleAll:

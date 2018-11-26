@@ -2,14 +2,12 @@
 
 package pbrt
 
-import (
-	"math"
-)
+import "github.com/stupschwartz/go-pbrt/pkg/math"
 
 type TransportMode int
 
 const (
-	Radiance   TransportMode = iota + 1
+	Radiance TransportMode = iota + 1
 	Importance
 )
 
@@ -17,7 +15,7 @@ type Material interface {
 	ComputeScatteringFunctions(si *SurfaceInteraction, mode TransportMode, allowMultipleLobes bool)
 }
 
-func Bump(m Material ,d FloatTexture, si *SurfaceInteraction) {
+func Bump(m Material, d FloatTexture, si *SurfaceInteraction) {
 	// compute offset positions and evaluate displacement texture
 	siEval := *si
 
@@ -43,9 +41,9 @@ type MatteMaterial struct {
 
 func NewMatteMaterial(Kd SpectrumTexture, sigma, bumpMap FloatTexture) *MatteMaterial {
 	return &MatteMaterial{
-		Kd:       Kd,
-		sigma:    sigma,
-		bumpMap:  bumpMap,
+		Kd:      Kd,
+		sigma:   sigma,
+		bumpMap: bumpMap,
 	}
 }
 
@@ -57,7 +55,7 @@ func (m *MatteMaterial) ComputeScatteringFunctions(si *SurfaceInteraction, mode 
 	// evaluate textures for MatteMaterial and allocate BRDF
 	si.BSDF = NewBSDF(si, 1.0)
 	r := m.Kd.Evaluate(si).Clamp(0, math.Inf(1))
-	sig := Clamp(m.sigma.Evaluate(si), 0, 90)
+	sig := math.Clamp(m.sigma.Evaluate(si), 0, 90)
 	if !r.IsBlack() {
 		if sig == 0 {
 			si.BSDF.Add(NewLambertianReflection(r))

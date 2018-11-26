@@ -2,21 +2,19 @@
 
 package pbrt
 
-import (
-	"math"
-)
+import "github.com/stupschwartz/go-pbrt/pkg/math"
 
 const MaxBxDFs = 8
 
 type BxDFType int
 
 const (
-	BSDFReflection   BxDFType = 1 << iota
+	BSDFReflection BxDFType = 1 << iota
 	BSDFTransmission
 	BSDFDiffuse
 	BSDFGlossy
 	BSDFSpecular
-	BSDFAll          = BSDFDiffuse | BSDFGlossy | BSDFSpecular | BSDFReflection | BSDFTransmission
+	BSDFAll = BSDFDiffuse | BSDFGlossy | BSDFSpecular | BSDFReflection | BSDFTransmission
 )
 
 func SameHemisphere(w, wp *Vector3f) bool {
@@ -57,7 +55,7 @@ func CosPhi(w *Vector3f) float64 {
 		return 1
 	}
 
-	return Clamp(w.X/sinTheta, -1, 1)
+	return math.Clamp(w.X/sinTheta, -1, 1)
 }
 
 func SinPhi(w *Vector3f) float64 {
@@ -66,7 +64,7 @@ func SinPhi(w *Vector3f) float64 {
 		return 0
 	}
 
-	return Clamp(w.Y/sinTheta, -1, 1)
+	return math.Clamp(w.Y/sinTheta, -1, 1)
 }
 
 func Cos2Phi(w *Vector3f) float64 {
@@ -166,7 +164,7 @@ func (b *BSDF) SampleF(woWorld *Vector3f, u *Point2f, t BxDFType) (s Spectrum, w
 	}
 
 	// remap sample u to [0,1)^2
-	uRemapped := &Point2f{u.X*float64(matchingComps) - comp, OneMinusEpsilon}
+	uRemapped := &Point2f{u.X*float64(matchingComps) - comp, math.OneMinusEpsilon}
 
 	// sample chosen bxDF
 	wo := b.WorldToLocal(woWorld)
@@ -193,7 +191,7 @@ func (b *BSDF) SampleF(woWorld *Vector3f, u *Point2f, t BxDFType) (s Spectrum, w
 		pdf /= float64(matchingComps)
 	}
 
-	// compute value of BSDF for sampled direction
+	// compute value of BSDF for sampled Direction
 	if (bxdf.GetType()&BSDFSpecular == 0) && matchingComps > 1 {
 		reflect := wiWorld.Dot(b.ng)*woWorld.Dot(b.ng) > 0
 		f.SetAll(0.0)
@@ -264,7 +262,7 @@ func MatchesFlags(t, flags BxDFType) bool {
 //}
 
 func sampleF(b BxDF, wo *Vector3f, sample *Point2f) (s Spectrum, wi *Vector3f, pdf float64, sampledType BxDFType) {
-	// cosine sample the hemisphere, flipping the direction if necessary
+	// cosine sample the hemisphere, flipping the Direction if necessary
 	wi = CosineSampleHemisphere(sample)
 	if wo.Z < 0 {
 		wi.Z *= -1
@@ -303,7 +301,7 @@ func rhoSamples(b BxDF, samples1, samples2 []*Point2f) Spectrum {
 
 func pdf(wo, wi *Vector3f) float64 {
 	if SameHemisphere(wo, wi) {
-		return AbsCosTheta(wi) * InvPi
+		return AbsCosTheta(wi) * math.InvPi
 	}
 	return 0
 }
@@ -367,7 +365,7 @@ func (l *SpecularReflection) F(woW, wiW *Vector3f) Spectrum {
 }
 
 func (l *SpecularReflection) SampleF(wo *Vector3f, sample *Point2f) (s Spectrum, wi *Vector3f, pdf float64, sampledType BxDFType) {
-	// Compute perfect specular reflection direction
+	// Compute perfect specular reflection Direction
 	wi = &Vector3f{X: -wo.X, Y: -wo.Y, Z: wo.Z}
 	pdf = 1.0
 	return l.fresnel.Evaluate(CosTheta(wi)).Mul(l.r).DivScalar(AbsCosTheta(wi)), wi, pdf, 0
@@ -399,7 +397,7 @@ type LambertianReflection struct {
 }
 
 func (l *LambertianReflection) F(woW, wiW *Vector3f) Spectrum {
-	return l.r.MulScalar(InvPi)
+	return l.r.MulScalar(math.InvPi)
 }
 
 func (l *LambertianReflection) SampleF(wo *Vector3f, sample *Point2f) (s Spectrum, wi *Vector3f, pdf float64, sampledType BxDFType) {
@@ -426,7 +424,7 @@ type OrenNayar struct {
 }
 
 func NewOrenNayar(r Spectrum, sigma float64) *OrenNayar {
-	sigma = Radians(sigma)
+	sigma = math.Radians(sigma)
 	sigma2 := sigma * sigma
 	return &OrenNayar{
 		bxDF: NewBxDF(BSDFReflection | BSDFDiffuse),
@@ -460,7 +458,7 @@ func (o *OrenNayar) F(wo, wi *Vector3f) Spectrum {
 		sinAlpha = sinThetaI
 		tanBeta = sinThetaO / AbsCosTheta(wo)
 	}
-	return o.r.MulScalar(InvPi * (o.a + o.b*maxCos*sinAlpha*tanBeta))
+	return o.r.MulScalar(math.InvPi * (o.a + o.b*maxCos*sinAlpha*tanBeta))
 }
 
 func (o *OrenNayar) SampleF(wo *Vector3f, sample *Point2f) (s Spectrum, wi *Vector3f, pdf float64, sampledType BxDFType) {

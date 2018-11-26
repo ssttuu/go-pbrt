@@ -1,17 +1,18 @@
 package accelerator
 
 import (
+	"fmt"
+	"log"
 	"math"
 	"sync/atomic"
-	"fmt"
+
 	"github.com/stupschwartz/go-pbrt/pkg/pbrt"
-	"log"
 )
 
 type SplitMethod int
 
 const (
-	SplitSAH         SplitMethod = iota + 1
+	SplitSAH SplitMethod = iota + 1
 	SplitHLBVH
 	SplitMiddle
 	SplitEqualCounts
@@ -526,7 +527,7 @@ func (b *BVHAccel) emitLBVH(
 	}
 
 	// find LBVH split Point for this dimension
-	var searchStart, searchEnd int64 = 0, nPrimitives-1
+	var searchStart, searchEnd int64 = 0, nPrimitives - 1
 	for searchStart+1 != searchEnd {
 		mid := nPrimitives / 2
 		if (mortonPrims[searchStart].mortonCode & mask) == (mortonPrims[mid].mortonCode & mask) {

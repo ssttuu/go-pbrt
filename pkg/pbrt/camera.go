@@ -2,9 +2,7 @@
 
 package pbrt
 
-import (
-	"math"
-)
+import "github.com/stupschwartz/go-pbrt/pkg/math"
 
 type Camera interface {
 	GenerateRay(sample *CameraSample) (float64, *Ray)
@@ -45,7 +43,7 @@ func (c *camera) GetFilm() *Film {
 //	wt, r := c.GenerateRay(sample)
 //	rd := NewRayDifferentialFromRay(r)
 //
-//	// find camera ray after shifting one pixel in the x direction
+//	// find camera ray after shifting one pixel in the x Direction
 //	sshift := sample
 //	sshift.pFilm.X++
 //
@@ -54,9 +52,9 @@ func (c *camera) GetFilm() *Film {
 //		return 0.0, rd
 //	}
 //	rd.rxOrigin = rx.Origin
-//	rd.rxDirection = rx.direction
+//	rd.rxDirection = rx.Direction
 //
-//	// find camera ray after shifting one pixel in the y direction
+//	// find camera ray after shifting one pixel in the y Direction
 //	sshift.pFilm.X--
 //	sshift.pFilm.Y++
 //
@@ -66,7 +64,7 @@ func (c *camera) GetFilm() *Film {
 //	}
 //
 //	rd.ryOrigin = ry.Origin
-//	rd.ryDirection = ry.direction
+//	rd.ryDirection = ry.Direction
 //	rd.hasDifferentials = true
 //	return wt, rd
 //}
@@ -130,13 +128,22 @@ func NewPerspectiveCamera(cameraToWorld *AnimatedTransform, screenWindow *Bounds
 	projCamera := NewProjectiveCamera(cameraToWorld, Perspective(fov, 1e-2, 1000.0), screenWindow, shutterOpen, shutterClose, lensRadius, focalDistance, film, medium)
 
 	// compute differential changes in Origin for perspective camera rays
-	dxCamera := projCamera.RasterToCamera.TransformPoint(&Point3f{1, 0, 0}).Sub(projCamera.RasterToCamera.TransformPoint(&Point3f{0, 0, 0}))
-	dyCamera := projCamera.RasterToCamera.TransformPoint(&Point3f{0, 1, 0}).Sub(projCamera.RasterToCamera.TransformPoint(&Point3f{0, 0, 0}))
+	dxCamera := func() *Point3f {
+		dxOne, _ := projCamera.RasterToCamera.TransformPoint(&Point3f{1, 0, 0}, NoError)
+		dxZero, _ := projCamera.RasterToCamera.TransformPoint(&Point3f{0, 0, 0}, NoError)
+		return dxOne.Sub(dxZero)
+	}()
+
+	dyCamera := func() *Point3f {
+		dyOne, _ := projCamera.RasterToCamera.TransformPoint(&Point3f{0, 1, 0}, NoError)
+		dyZero, _ := projCamera.RasterToCamera.TransformPoint(&Point3f{0, 0, 0}, NoError)
+		return dyOne.Sub(dyZero)
+	}()
 
 	// compute image plane bounds at z=1 for PerspectiveCamera
 	res := film.FullResolution
-	pMin := projCamera.RasterToCamera.TransformPoint(&Point3f{0, 0, 0})
-	pMax := projCamera.RasterToCamera.TransformPoint(&Point3f{float64(res.X), float64(res.Y), 0})
+	pMin, _ := projCamera.RasterToCamera.TransformPoint(&Point3f{0, 0, 0}, NoError)
+	pMax, _ := projCamera.RasterToCamera.TransformPoint(&Point3f{float64(res.X), float64(res.Y), 0}, NoError)
 	pMin = pMin.DivScalar(pMin.Z)
 	pMax = pMax.DivScalar(pMax.Z)
 	A := math.Abs((pMax.X - pMin.X) * (pMax.Y - pMin.Y))
@@ -152,7 +159,7 @@ func NewPerspectiveCamera(cameraToWorld *AnimatedTransform, screenWindow *Bounds
 func (c *PerspectiveCamera) GenerateRay(sample *CameraSample) (float64, *Ray) {
 	// Compute raster and camera sample positions
 	pFilm := &Point3f{sample.pFilm.X, sample.pFilm.Y, 0}
-	pCamera := c.RasterToCamera.TransformPoint(pFilm)
+	pCamera, _ := c.RasterToCamera.TransformPoint(pFilm, NoError)
 	ray := NewRay(&Point3f{0, 0, 0}, pCamera.Normalized(), 0.0)
 
 	// modify ray for depth of field
@@ -161,23 +168,23 @@ func (c *PerspectiveCamera) GenerateRay(sample *CameraSample) (float64, *Ray) {
 		pLens := ConcentricSampleDisk(sample.pLens).MulScalar(c.lensRadius)
 
 		// compute Point on plane of focus
-		ft := c.focalDistance / ray.direction.Z
-		pFocus := ray.direction.MulScalar(ft).Add(ray.Origin)
+		ft := c.focalDistance / ray.Direction.Z
+		pFocus := ray.Direction.MulScalar(ft).Add(ray.Origin)
 
 		// update ray for effect of lens
 		ray.Origin = &Point3f{pLens.X, pLens.Y, 0}
-		ray.direction = pFocus.Sub(ray.Origin).Normalized()
+		ray.Direction = pFocus.Sub(ray.Origin).Normalized()
 	}
 
-	ray.time = Lerp(sample.time, c.shutterOpen, c.shutterClose)
-	ray.medium = c.medium
+	ray.Time = math.Lerp(sample.time, c.shutterOpen, c.shutterClose)
+	ray.Medium = c.medium
 	return 1.0, c.cameraToWorld.TransformRay(ray)
 }
 
 func (c *PerspectiveCamera) GenerateRayDifferential(sample *CameraSample) (float64, *RayDifferential) {
 	// compute raster and camera sample position
 	pFilm := &Point3f{sample.pFilm.X, sample.pFilm.Y, 0}
-	pCamera := c.RasterToCamera.TransformPoint(pFilm)
+	pCamera, _ := c.RasterToCamera.TransformPoint(pFilm, NoError)
 	dir := pCamera.Normalized()
 	ray := NewRayDifferentialFromRay(NewRay(&Point3f{0, 0, 0}, dir, 0))
 
@@ -187,12 +194,12 @@ func (c *PerspectiveCamera) GenerateRayDifferential(sample *CameraSample) (float
 		pLens := ConcentricSampleDisk(sample.pLens).MulScalar(c.lensRadius)
 
 		// compute Point on plane of focus
-		ft := c.focalDistance / ray.direction.Z
-		pFocus := ray.direction.MulScalar(ft).Add(ray.Origin)
+		ft := c.focalDistance / ray.Direction.Z
+		pFocus := ray.Direction.MulScalar(ft).Add(ray.Origin)
 
 		// update ray for effect of lens
 		ray.Origin = &Point3f{pLens.X, pLens.Y, 0}
-		ray.direction = pFocus.Sub(ray.Origin).Normalized()
+		ray.Direction = pFocus.Sub(ray.Origin).Normalized()
 	}
 
 	// compute offset rays for PerspectiveCamera ray differentials
@@ -203,7 +210,7 @@ func (c *PerspectiveCamera) GenerateRayDifferential(sample *CameraSample) (float
 		pLens := ConcentricSampleDisk(sample.pLens).MulScalar(c.lensRadius)
 		dx := pCamera.Add(c.dxCamera).Normalized()
 		ft := c.focalDistance / dx.Z
-		pFocus := ray.direction.Mul(dx.MulScalar(ft)).Add(ray.Origin)
+		pFocus := ray.Direction.Mul(dx.MulScalar(ft)).Add(ray.Origin)
 		ray.rxOrigin = &Point3f{pLens.X, pLens.Y, 0}
 		ray.rxDirection = pFocus.Sub(ray.rxOrigin).Normalized()
 
@@ -218,8 +225,8 @@ func (c *PerspectiveCamera) GenerateRayDifferential(sample *CameraSample) (float
 		ray.rxDirection = pCamera.Add(c.dxCamera).Normalized()
 		ray.ryDirection = pCamera.Add(c.dyCamera).Normalized()
 	}
-	ray.time = Lerp(sample.time, c.shutterOpen, c.shutterClose)
-	ray.medium = c.medium
+	ray.Time = math.Lerp(sample.time, c.shutterOpen, c.shutterClose)
+	ray.Medium = c.medium
 	ray.Ray = c.cameraToWorld.TransformRay(ray.Ray)
 	ray.hasDifferentials = true
 
@@ -228,8 +235,8 @@ func (c *PerspectiveCamera) GenerateRayDifferential(sample *CameraSample) (float
 
 func (c *PerspectiveCamera) We(r *Ray) (Spectrum, *Point2f) {
 	// interpolate camera Matrix and check if w is forward-facing
-	c2w := c.cameraToWorld.Interpolate(r.time)
-	cosTheta := r.direction.Dot(c2w.TransformVector(&Vector3f{0, 0, 1}))
+	c2w := c.cameraToWorld.Interpolate(r.Time)
+	cosTheta := r.Direction.Dot(c2w.TransformVector(&Vector3f{0, 0, 1}))
 	if cosTheta <= 0 {
 		return NewSpectrum(0), nil
 	}
@@ -239,7 +246,7 @@ func (c *PerspectiveCamera) We(r *Ray) (Spectrum, *Point2f) {
 	if c.lensRadius > 0 {
 		v = c.focalDistance
 	}
-	pFocus := r.direction.MulScalar(v).Add(r.Origin)
+	pFocus := r.Direction.MulScalar(v).Add(r.Origin)
 	pRaster := c.RasterToCamera.Inverse().TransformVector(c2w.Inverse().TransformVector(pFocus))
 
 	// return zero imporance for out of bounds points
@@ -251,7 +258,7 @@ func (c *PerspectiveCamera) We(r *Ray) (Spectrum, *Point2f) {
 	// compute lens area of perspective camera
 	lensArea := 1.0
 	if c.lensRadius > 0 {
-		lensArea = Pi * c.lensRadius * c.lensRadius
+		lensArea = math.Pi * c.lensRadius * c.lensRadius
 	}
 
 	// return imporance for Point on image plane
@@ -261,8 +268,8 @@ func (c *PerspectiveCamera) We(r *Ray) (Spectrum, *Point2f) {
 }
 
 func (c *PerspectiveCamera) PdfWe(r *Ray) (pdfPos, pdfDir float64) {
-	c2w := c.cameraToWorld.Interpolate(r.time)
-	cosTheta := r.direction.Dot(c2w.TransformVector(&Vector3f{0, 0, 0}))
+	c2w := c.cameraToWorld.Interpolate(r.Time)
+	cosTheta := r.Direction.Dot(c2w.TransformVector(&Vector3f{0, 0, 0}))
 	if cosTheta <= 0 {
 		return 0, 0
 	}
@@ -270,7 +277,7 @@ func (c *PerspectiveCamera) PdfWe(r *Ray) (pdfPos, pdfDir float64) {
 	// compute lens area of perspective camera
 	lensArea := 1.0
 	if c.lensRadius > 0 {
-		lensArea = Pi * c.lensRadius * c.lensRadius
+		lensArea = math.Pi * c.lensRadius * c.lensRadius
 	}
 
 	return 1.0 / lensArea, 1.0 / (c.A * cosTheta * cosTheta * cosTheta)
@@ -284,7 +291,7 @@ func (c *PerspectiveCamera) SampleWi(ref Interaction, u *Point2f) (s Spectrum, w
 		Point:  pLensWorld,
 		Normal: c.cameraToWorld.TransformVectorAtTime(&Vector3f{0, 0, 1}, ref.GetTime()),
 		time:   ref.GetTime(),
-		//mediumAccessor: c.medium,
+		//mediumAccessor: c.Medium,
 	}
 
 	// populate arguments and compute the importance value
@@ -298,7 +305,7 @@ func (c *PerspectiveCamera) SampleWi(ref Interaction, u *Point2f) (s Spectrum, w
 	// compute lens area of perspective camera
 	lensArea := 1.0
 	if c.lensRadius > 0 {
-		lensArea = Pi * c.lensRadius * c.lensRadius
+		lensArea = math.Pi * c.lensRadius * c.lensRadius
 	}
 
 	pdf = (dist * dist) / (lensIntr.Normal.AbsDot(wi) * lensArea)

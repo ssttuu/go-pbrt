@@ -1,14 +1,14 @@
 package pbrt
 
 import (
-	"sync/atomic"
-	"sync"
-	"math"
-	"os"
-	"image/png"
 	"image"
 	"image/color"
+	"image/png"
 	"log"
+	"math"
+	"os"
+	"sync"
+	"sync/atomic"
 )
 
 type FilmTilePixel struct {

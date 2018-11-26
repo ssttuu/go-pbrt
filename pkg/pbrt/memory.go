@@ -1,4 +1,4 @@
 package pbrt
 
 // TODO: remove
-type MemoryArena struct {}
+type MemoryArena struct{}

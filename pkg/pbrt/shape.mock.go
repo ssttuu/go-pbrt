@@ -5,8 +5,9 @@
 package pbrt
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockShape is a mock of Shape interface
@@ -132,16 +133,15 @@ func (mr *MockShapeMockRecorder) Pdf(ref interface{}) *gomock.Call {
 }
 
 // PdfWi mocks base method
-func (m *MockShape) PdfWi(ref Interaction) (float64, *Vector3f) {
-	ret := m.ctrl.Call(m, "PdfWi", ref)
+func (m *MockShape) PdfWi(ref Interaction, wi *Vector3f) float64 {
+	ret := m.ctrl.Call(m, "PdfWi", ref, wi)
 	ret0, _ := ret[0].(float64)
-	ret1, _ := ret[1].(*Vector3f)
-	return ret0, ret1
+	return ret0
 }
 
 // PdfWi indicates an expected call of PdfWi
-func (mr *MockShapeMockRecorder) PdfWi(ref interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PdfWi", reflect.TypeOf((*MockShape)(nil).PdfWi), ref)
+func (mr *MockShapeMockRecorder) PdfWi(ref, wi interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PdfWi", reflect.TypeOf((*MockShape)(nil).PdfWi), ref, wi)
 }
 
 // SolidAngle mocks base method

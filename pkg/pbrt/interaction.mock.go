@@ -5,8 +5,9 @@
 package pbrt
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockInteraction is a mock of Interaction interface
@@ -78,6 +79,18 @@ func (m *MockInteraction) GetPoint() *Point3f {
 // GetPoint indicates an expected call of GetPoint
 func (mr *MockInteractionMockRecorder) GetPoint() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPoint", reflect.TypeOf((*MockInteraction)(nil).GetPoint))
+}
+
+// GetPointError mocks base method
+func (m *MockInteraction) GetPointError() *Vector3f {
+	ret := m.ctrl.Call(m, "GetPointError")
+	ret0, _ := ret[0].(*Vector3f)
+	return ret0
+}
+
+// GetPointError indicates an expected call of GetPointError
+func (mr *MockInteractionMockRecorder) GetPointError() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPointError", reflect.TypeOf((*MockInteraction)(nil).GetPointError))
 }
 
 // GetTime mocks base method

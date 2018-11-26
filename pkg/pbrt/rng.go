@@ -1,6 +1,6 @@
 package pbrt
 
-import "math"
+import "github.com/stupschwartz/go-pbrt/pkg/math"
 
 const (
 	PCG32DefaultState  = 0x853c49e6748fea9b
@@ -44,5 +44,5 @@ func (r *rng) UniformUInt32() uint32 {
 }
 
 func (r *rng) UniformFloat() float64 {
-	return math.Min(OneMinusEpsilon, float64(r.UniformUInt32())*2.3283064365386963e-10)
+	return math.Min(math.OneMinusEpsilon, float64(r.UniformUInt32())*2.3283064365386963e-10)
 }

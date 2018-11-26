@@ -1,39 +1,41 @@
 package pbrt
 
+import "github.com/stupschwartz/go-pbrt/pkg/math"
+
 type Ray struct {
 	Origin    *Point3f
-	direction *Vector3f
-	tMax      float64
-	time      float64
-	medium    Medium
+	Direction *Vector3f
+	TMax      float64
+	Time      float64
+	Medium    Medium
 }
 
 func NewRay(origin *Point3f, direction *Vector3f, time float64) *Ray {
 	return &Ray{
 		Origin:    origin,
-		direction: direction,
-		tMax:      Infinity,
-		time:      time,
-		medium:    nil,
+		Direction: direction,
+		TMax:      math.Infinity,
+		Time:      time,
+		Medium:    nil,
 	}
 }
 
 func NewRayWithMedium(origin *Point3f, direction *Vector3f, time float64, medium Medium) *Ray {
 	return &Ray{
 		Origin:    origin,
-		direction: direction,
-		tMax:      Infinity,
-		time:      time,
-		medium:    medium,
+		Direction: direction,
+		TMax:      math.Infinity,
+		Time:      time,
+		Medium:    medium,
 	}
 }
 
 func (r *Ray) PointAt(t float64) *Point3f {
-	return r.Origin.Mul(r.direction).MulScalar(t)
+	return r.Origin.Mul(r.Direction).MulScalar(t)
 }
 
 func OffsetRayOrigin(p *Point3f, pError *Vector3f, n *Normal3f, w *Vector3f) *Point3f {
-	d := n.Abs().Dot(pError)
+	d := n.Abs().Dot(pError) * 1024.0 // TODO:
 	offset := n.MulScalar(d)
 	if w.Dot(n) < 0 {
 		offset = offset.MulScalar(-1)
@@ -42,14 +44,13 @@ func OffsetRayOrigin(p *Point3f, pError *Vector3f, n *Normal3f, w *Vector3f) *Po
 
 	for i := 0; i < 3; i++ {
 		if offset.Index(i) > 0 {
-			po.SetIndex(i, NextFloatUp(po.Index(i)))
+			po.SetIndex(i, math.NextFloatUp(po.Index(i)))
 		} else if offset.Index(i) < 0 {
-			po.SetIndex(i, NextFloatDown(po.Index(i)))
+			po.SetIndex(i, math.NextFloatDown(po.Index(i)))
 		}
 	}
 
 	return po
-
 }
 
 type RayDifferential struct {
@@ -61,9 +62,7 @@ type RayDifferential struct {
 }
 
 func NewRayDifferential() *RayDifferential {
-	return &RayDifferential{
-
-	}
+	return &RayDifferential{}
 }
 
 func NewRayDifferentialFromRay(r *Ray) *RayDifferential {
@@ -82,6 +81,6 @@ func (rd *RayDifferential) ScaleDifferentials(s float64) {
 	mulscalarin := subbin.MulScalar(s)
 	rd.rxOrigin = rd.Origin.Add(mulscalarin)
 	rd.ryOrigin = rd.Origin.Add(rd.ryOrigin.Sub(rd.Origin).MulScalar(s))
-	rd.rxDirection = rd.direction.Add(rd.rxDirection.Sub(rd.direction).MulScalar(s))
-	rd.ryDirection = rd.direction.Add(rd.ryDirection.Sub(rd.direction).MulScalar(s))
+	rd.rxDirection = rd.Direction.Add(rd.rxDirection.Sub(rd.Direction).MulScalar(s))
+	rd.ryDirection = rd.Direction.Add(rd.ryDirection.Sub(rd.Direction).MulScalar(s))
 }

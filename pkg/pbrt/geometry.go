@@ -2,6 +2,7 @@ package pbrt
 
 import (
 	"math"
+
 	"github.com/stupschwartz/go-pbrt/pkg/geometry"
 )
 
@@ -19,6 +20,8 @@ type Vector3f = geometry.XYZFloat64
 
 type Normal3i = geometry.XYZInt64
 type Normal3f = geometry.XYZFloat64
+
+var NoError = &Vector3f{}
 
 func NewPoint2fFromPoint2i(p *Point2i) *Point2f {
 	return &Point2f{

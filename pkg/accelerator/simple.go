@@ -2,10 +2,12 @@ package accelerator
 
 import (
 	"log"
+
+	"github.com/stupschwartz/go-pbrt/pkg/math"
 	"github.com/stupschwartz/go-pbrt/pkg/pbrt"
 )
 
-func NewSimpleAggregate(primitives []pbrt.Primitive) *Simple {
+func NewSimpleAggregate(primitives []*pbrt.TransformedPrimitive) *Simple {
 	sa := &Simple{
 		primitives: primitives,
 	}
@@ -20,7 +22,7 @@ func NewSimpleAggregate(primitives []pbrt.Primitive) *Simple {
 }
 
 type Simple struct {
-	primitives []pbrt.Primitive
+	primitives []*pbrt.TransformedPrimitive
 	bounds     pbrt.Bounds3
 }
 
@@ -44,7 +46,7 @@ func (a *Simple) WorldBound() *pbrt.Bounds3 {
 
 func (a *Simple) Intersect(r *pbrt.Ray, si *pbrt.SurfaceInteraction) bool {
 	intersects := false
-	minDist := pbrt.Infinity
+	minDist := math.Infinity
 	closestInteraction := pbrt.NewSurfaceInteraction()
 
 	for i := range a.primitives {
@@ -70,7 +72,7 @@ func (a *Simple) IntersectP(r *pbrt.Ray) bool {
 	for _, p := range a.primitives {
 		intersects := p.IntersectP(r)
 		if intersects {
-			return intersects
+			return true
 		}
 	}
 	return false

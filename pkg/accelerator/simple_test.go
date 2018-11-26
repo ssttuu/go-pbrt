@@ -2,9 +2,10 @@ package accelerator
 
 import (
 	"testing"
+
 	"github.com/golang/mock/gomock"
-	"github.com/stupschwartz/go-pbrt/pkg/pbrt"
 	"github.com/stretchr/testify/assert"
+	"github.com/stupschwartz/go-pbrt/pkg/pbrt"
 )
 
 func TestSimple_Intersect(t *testing.T) {
@@ -31,11 +32,11 @@ func TestSimple_Intersect(t *testing.T) {
 		Intersect(ray, gomock.Any()).
 		Times(1).
 		DoAndReturn(func(r *pbrt.Ray, si *pbrt.SurfaceInteraction) bool {
-		si.Point.Set(0.0, 0.0, 4.0)
-		return true
-	})
+			si.Point.Set(0.0, 0.0, 4.0)
+			return true
+		})
 
-	s := Simple{primitives:[]pbrt.Primitive{prim1, prim2}}
+	s := Simple{primitives: []pbrt.Primitive{prim1, prim2}}
 
 	intersects := s.Intersect(ray, si)
 
@@ -43,7 +44,7 @@ func TestSimple_Intersect(t *testing.T) {
 	assert.Equal(t, &pbrt.Point3f{0.0, 0.0, 4.0}, si.Point)
 }
 
-func TestSimple_Intersect_ReturnsFalseWhenNoIntersections(t *testing.T)  {
+func TestSimple_Intersect_ReturnsFalseWhenNoIntersections(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -58,8 +59,27 @@ func TestSimple_Intersect_ReturnsFalseWhenNoIntersections(t *testing.T)  {
 		Times(1).
 		Return(false)
 
-	s := Simple{primitives:[]pbrt.Primitive{prim}}
+	s := Simple{primitives: []pbrt.Primitive{prim}}
 
 	intersects := s.Intersect(ray, si)
 	assert.False(t, intersects)
+}
+
+func TestSimple_IntersectP(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	prim := pbrt.NewMockPrimitive(ctrl)
+	ray := pbrt.NewRay(&pbrt.Point3f{0, 0, 0}, &pbrt.Vector3f{0, 0, 1.0}, 0)
+
+	prim.
+		EXPECT().
+		IntersectP(ray).
+		Times(1).
+		Return(false)
+
+	s := Simple{primitives: []pbrt.Primitive{prim}}
+
+	assert.False(t, s.IntersectP(ray))
+
 }

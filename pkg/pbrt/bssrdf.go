@@ -1,7 +1,6 @@
 package pbrt
 
-
 type BSSRDF struct {
-	po *SurfaceInteraction
+	po  *SurfaceInteraction
 	eta float64
 }

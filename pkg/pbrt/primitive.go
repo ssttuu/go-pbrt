@@ -7,12 +7,12 @@ import (
 )
 
 type Primitive interface {
-	WorldBound() *Bounds3
 	Intersect(r *Ray, si *SurfaceInteraction) bool
 	IntersectP(r *Ray) bool
 	GetAreaLight() AreaLighter
 	GetMaterial() Material
 	ComputeScatteringFunctions(si *SurfaceInteraction, mode TransportMode, allowMultipleLobes bool)
+	WorldBound() *Bounds3
 }
 
 type Aggregate interface {
@@ -48,13 +48,13 @@ func (p *GeometricPrimitive) Intersect(r *Ray, si *SurfaceInteraction) bool {
 	if !intersects {
 		return false
 	}
-	r.tMax = tHit
+	r.TMax = tHit
 	si.Primitive = p
 
 	if p.mediumAccessor.IsMediumTransition() {
 		si.mediumAccessor = p.mediumAccessor
 	} else {
-		si.mediumAccessor = &MediumAccessor{r.medium, r.medium}
+		si.mediumAccessor = &MediumAccessor{r.Medium, r.Medium}
 	}
 
 	return true
@@ -79,20 +79,27 @@ func (p *GeometricPrimitive) ComputeScatteringFunctions(si *SurfaceInteraction, 
 
 //func NewGeometricPrimitive(shape *shape, material material, areaLigh)
 
+func NewTransformedPrimitive(p Primitive, p2w *AnimatedTransform) *TransformedPrimitive {
+	return &TransformedPrimitive{
+		primitive:        p,
+		primitiveToWorld: p2w,
+	}
+}
+
 type TransformedPrimitive struct {
 	primitive        Primitive
-	primitiveToWorld AnimatedTransform
+	primitiveToWorld *AnimatedTransform
 }
 
 func (tp *TransformedPrimitive) Intersect(r *Ray, si *SurfaceInteraction) bool {
-	interpolatedPrimToWorld := tp.primitiveToWorld.Interpolate(r.time)
-	ray := interpolatedPrimToWorld.Inverse().TransformRay(r)
+	interpolatedPrimToWorld := tp.primitiveToWorld.Interpolate(r.Time)
+	ray, _, _ := interpolatedPrimToWorld.Inverse().TransformRay(r)
 
 	intersects := tp.primitive.Intersect(ray, si)
 	if !intersects {
 		return false
 	}
-	r.tMax = ray.tMax
+	r.TMax = ray.TMax
 
 	if !interpolatedPrimToWorld.IsIdentity() {
 		si = interpolatedPrimToWorld.TransformSurfaceInteraction(si)
@@ -102,6 +109,22 @@ func (tp *TransformedPrimitive) Intersect(r *Ray, si *SurfaceInteraction) bool {
 }
 
 func (tp *TransformedPrimitive) IntersectP(r *Ray) bool {
-	interpolatedPrimToWorld := tp.primitiveToWorld.Interpolate(r.time).Inverse()
-	return tp.primitive.IntersectP(interpolatedPrimToWorld.TransformRay(r))
+	//interpolatedPrimToWorld := tp.primitiveToWorld.Interpolate(r.Time)
+	//interpolatedWorldToPrim := interpolatedPrimToWorld.Inverse()
+	//ray, _, _ := interpolatedWorldToPrim.TransformRay(r)
+	return tp.primitive.IntersectP(r)
+}
+
+func (tp *TransformedPrimitive) GetAreaLight() AreaLighter {
+	return nil
+}
+func (tp *TransformedPrimitive) GetMaterial() Material {
+	return nil
+}
+func (tp *TransformedPrimitive) ComputeScatteringFunctions(si *SurfaceInteraction, mode TransportMode, allowMultipleLobes bool) {
+	log.Panic("should not be called")
+}
+
+func (tp *TransformedPrimitive) WorldBound() *Bounds3 {
+	return tp.primitiveToWorld.MotionBounds(tp.primitive.WorldBound())
 }

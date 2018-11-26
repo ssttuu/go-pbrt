@@ -5,8 +5,9 @@
 package pbrt
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockLight is a mock of Light interface
@@ -106,16 +107,15 @@ func (mr *MockLightMockRecorder) Le(r interface{}) *gomock.Call {
 }
 
 // PdfLi mocks base method
-func (m *MockLight) PdfLi(ref Interaction) (float64, *Vector3f) {
-	ret := m.ctrl.Call(m, "PdfLi", ref)
+func (m *MockLight) PdfLi(ref Interaction, wi *Vector3f) float64 {
+	ret := m.ctrl.Call(m, "PdfLi", ref, wi)
 	ret0, _ := ret[0].(float64)
-	ret1, _ := ret[1].(*Vector3f)
-	return ret0, ret1
+	return ret0
 }
 
 // PdfLi indicates an expected call of PdfLi
-func (mr *MockLightMockRecorder) PdfLi(ref interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PdfLi", reflect.TypeOf((*MockLight)(nil).PdfLi), ref)
+func (mr *MockLightMockRecorder) PdfLi(ref, wi interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PdfLi", reflect.TypeOf((*MockLight)(nil).PdfLi), ref, wi)
 }
 
 // SampleLe mocks base method
@@ -244,16 +244,15 @@ func (mr *MockAreaLighterMockRecorder) Le(r interface{}) *gomock.Call {
 }
 
 // PdfLi mocks base method
-func (m *MockAreaLighter) PdfLi(ref Interaction) (float64, *Vector3f) {
-	ret := m.ctrl.Call(m, "PdfLi", ref)
+func (m *MockAreaLighter) PdfLi(ref Interaction, wi *Vector3f) float64 {
+	ret := m.ctrl.Call(m, "PdfLi", ref, wi)
 	ret0, _ := ret[0].(float64)
-	ret1, _ := ret[1].(*Vector3f)
-	return ret0, ret1
+	return ret0
 }
 
 // PdfLi indicates an expected call of PdfLi
-func (mr *MockAreaLighterMockRecorder) PdfLi(ref interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PdfLi", reflect.TypeOf((*MockAreaLighter)(nil).PdfLi), ref)
+func (mr *MockAreaLighterMockRecorder) PdfLi(ref, wi interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PdfLi", reflect.TypeOf((*MockAreaLighter)(nil).PdfLi), ref, wi)
 }
 
 // SampleLe mocks base method
