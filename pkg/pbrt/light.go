@@ -47,11 +47,11 @@ type PointLight struct {
 	I      Spectrum
 }
 
-func NewPointLight(lightToWorld *Transform, mediumAccessor *MediumAccessor, i Spectrum) Light {
-	p, _ := lightToWorld.TransformPoint(&Point3f{0, 0, 0}, new(Vector3f))
+func NewPointLight(lightToWorld *Transform, mediumAccessor *MediumAccessor, i Spectrum) *PointLight {
+	p, _ := lightToWorld.TransformPoint(new(Point3f), new(Vector3f))
 	return &PointLight{
 		flags:          LightFlagDeltaPosition,
-		nSamples:       1,
+		nSamples:       8,
 		MediumAccessor: mediumAccessor,
 		lightToWorld:   lightToWorld,
 		worldToLight:   lightToWorld.Inverse(),

@@ -91,11 +91,11 @@ type TransformedPrimitive struct {
 	primitiveToWorld *AnimatedTransform
 }
 
-func (tp *TransformedPrimitive) Intersect(r *Ray, si *SurfaceInteraction) bool {
-	interpolatedPrimToWorld := tp.primitiveToWorld.Interpolate(r.Time)
+func (p *TransformedPrimitive) Intersect(r *Ray, si *SurfaceInteraction) bool {
+	interpolatedPrimToWorld := p.primitiveToWorld.Interpolate(r.Time)
 	ray, _, _ := interpolatedPrimToWorld.Inverse().TransformRay(r)
 
-	intersects := tp.primitive.Intersect(ray, si)
+	intersects := p.primitive.Intersect(ray, si)
 	if !intersects {
 		return false
 	}
@@ -108,23 +108,22 @@ func (tp *TransformedPrimitive) Intersect(r *Ray, si *SurfaceInteraction) bool {
 	return true
 }
 
-func (tp *TransformedPrimitive) IntersectP(r *Ray) bool {
-	//interpolatedPrimToWorld := tp.primitiveToWorld.Interpolate(r.Time)
-	//interpolatedWorldToPrim := interpolatedPrimToWorld.Inverse()
-	//ray, _, _ := interpolatedWorldToPrim.TransformRay(r)
-	return tp.primitive.IntersectP(r)
+func (p *TransformedPrimitive) IntersectP(r *Ray) bool {
+	interpolatedPrimToWorld := p.primitiveToWorld.Interpolate(r.Time)
+	ray, _, _ := interpolatedPrimToWorld.Inverse().TransformRay(r)
+	return p.primitive.IntersectP(ray)
 }
 
-func (tp *TransformedPrimitive) GetAreaLight() AreaLighter {
+func (p *TransformedPrimitive) GetAreaLight() AreaLighter {
 	return nil
 }
-func (tp *TransformedPrimitive) GetMaterial() Material {
+func (p *TransformedPrimitive) GetMaterial() Material {
 	return nil
 }
-func (tp *TransformedPrimitive) ComputeScatteringFunctions(si *SurfaceInteraction, mode TransportMode, allowMultipleLobes bool) {
+func (p *TransformedPrimitive) ComputeScatteringFunctions(si *SurfaceInteraction, mode TransportMode, allowMultipleLobes bool) {
 	log.Panic("should not be called")
 }
 
-func (tp *TransformedPrimitive) WorldBound() *Bounds3 {
-	return tp.primitiveToWorld.MotionBounds(tp.primitive.WorldBound())
+func (p *TransformedPrimitive) WorldBound() *Bounds3 {
+	return p.primitiveToWorld.MotionBounds(p.primitive.WorldBound())
 }
