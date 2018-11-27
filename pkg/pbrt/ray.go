@@ -31,7 +31,7 @@ func NewRayWithMedium(origin *Point3f, direction *Vector3f, time float64, medium
 }
 
 func (r *Ray) PointAt(t float64) *Point3f {
-	return r.Origin.Mul(r.Direction).MulScalar(t)
+	return r.Origin.Add(r.Direction.MulScalar(t))
 }
 
 func OffsetRayOrigin(p *Point3f, pError *Vector3f, n *Normal3f, w *Vector3f) *Point3f {

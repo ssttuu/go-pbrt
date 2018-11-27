@@ -32,8 +32,8 @@ func NewSphere(name string, objectToWorld, worldToObject *Transform, reverseOrie
 	}
 }
 
-func NewSphereShape(name string, o2w, w2o *Transform, reverseOrientation bool, radius float64) Shape {
-	return NewSphere(name, o2w, w2o, reverseOrientation, radius, -radius, radius, 360.0)
+func NewSphereShape(name string, o2w *Transform, reverseOrientation bool, radius float64) Shape {
+	return NewSphere(name, o2w, o2w.Inverse(), reverseOrientation, radius, -radius, radius, 360.0)
 }
 
 func (s *Sphere) GetName() string {
@@ -53,6 +53,13 @@ func (s *Sphere) ObjectBound() *Bounds3 {
 
 func (s *Sphere) WorldBound() *Bounds3 {
 	return s.objectToWorld.TransformBounds(s.ObjectBound())
+}
+
+func (s *Sphere) ReverseOrientation() bool {
+	return s.reverseOrientation
+}
+func (s *Sphere) TransformSwapsHandedness() bool {
+	return s.transformSwapsHandedness
 }
 
 func (s *Sphere) Intersect(r *Ray, si *SurfaceInteraction, testAlphaTexture bool) (intersects bool, tHit float64) {

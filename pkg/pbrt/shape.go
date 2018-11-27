@@ -10,6 +10,8 @@ type Shape interface {
 	GetName() string
 	ObjectBound() *Bounds3
 	WorldBound() *Bounds3
+	ReverseOrientation() bool
+	TransformSwapsHandedness() bool
 	Intersect(r *Ray, si *SurfaceInteraction, testAlphaTexture bool) (intersects bool, tHit float64)
 	IntersectP(r *Ray, testAlphaTexture bool) (intersects bool)
 	Sample(u *Point2f) (i Interaction, pdf float64)

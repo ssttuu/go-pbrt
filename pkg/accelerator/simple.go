@@ -7,7 +7,7 @@ import (
 	"github.com/stupschwartz/go-pbrt/pkg/pbrt"
 )
 
-func NewSimpleAggregate(primitives []*pbrt.TransformedPrimitive) *Simple {
+func NewSimpleAggregate(primitives []pbrt.Primitive) *Simple {
 	sa := &Simple{
 		primitives: primitives,
 	}
@@ -22,7 +22,7 @@ func NewSimpleAggregate(primitives []*pbrt.TransformedPrimitive) *Simple {
 }
 
 type Simple struct {
-	primitives []*pbrt.TransformedPrimitive
+	primitives []pbrt.Primitive
 	bounds     pbrt.Bounds3
 }
 

@@ -87,17 +87,19 @@ func EstimateDirect(it Interaction, uScattering *Point2f, light Light, uLight *P
 		// compute BSDF for light sampling strategy
 		var f Spectrum
 
-		switch intr := it.(type) {
+		switch isect := it.(type) {
 		case *SurfaceInteraction:
-			f = intr.BSDF.F(intr.wo, wi, bsdfFlags).MulScalar(wi.AbsDot(intr.shading.normal))
-			scatteringPdf = intr.BSDF.Pdf(intr.wo, wi, bsdfFlags)
+			f = isect.BSDF.F(isect.wo, wi, bsdfFlags)
+			wiDotNormal := wi.AbsDot(isect.shading.normal)
+			//return NewSpectrum(wiDotNormal)
+			f = f.MulScalar(wiDotNormal)
+			scatteringPdf = isect.BSDF.Pdf(isect.wo, wi, bsdfFlags)
 		case *MediumInteraction:
-			p := intr.phase.P(intr.wo, wi)
+			p := isect.phase.P(isect.wo, wi)
 			f = NewSpectrum(p)
 			scatteringPdf = p
 		default:
-			// TODO: return error
-			log.Panicf("UnknownInteraction: %+v\n", intr)
+			log.Panicf("UnknownInteraction: %+v\n", isect)
 		}
 
 		if !f.IsBlack() {
@@ -110,7 +112,6 @@ func EstimateDirect(it Interaction, uScattering *Point2f, light Light, uLight *P
 					Li = NewSpectrum(0)
 				} else {
 					// Shadow ray unoccluded
-					fmt.Println("shadow ray unoccluded")
 					//log.Panic("SHADOW RAY FINALLY UNOCCLUDED")
 				}
 			}
@@ -127,9 +128,6 @@ func EstimateDirect(it Interaction, uScattering *Point2f, light Light, uLight *P
 			}
 		}
 	}
-
-	// FIXME: remove
-	return Ld
 
 	// sample SDF with multiple importance sampling
 	if !IsDeltaLight(light.GetFlags()) {
@@ -499,7 +497,6 @@ func (dli *DirectLightingIntegrator) Li(ctx context.Context, ray *RayDifferentia
 	// TODO
 	si.ComputeScatteringFunctions(ray, false, Radiance)
 	if si.BSDF == nil {
-		return NewSpectrum(1.0)
 		return dli.Li(ctx, NewRayDifferentialFromRay(si.SpawnRay(ray.Direction)), scene, sampler, depth)
 	}
 
@@ -518,6 +515,7 @@ func (dli *DirectLightingIntegrator) Li(ctx context.Context, ray *RayDifferentia
 			log.Panic("unknown lighting strategy")
 		}
 	}
+
 	if depth+1 < dli.maxDepth {
 		// trace rays for specular reflection and refraction
 		L.AddAssign(dli.SpecularReflect(ctx, ray, si, scene, sampler, depth+1))

@@ -5,9 +5,8 @@
 package pbrt
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockShape is a mock of Shape interface
@@ -67,6 +66,30 @@ func (m *MockShape) WorldBound() *Bounds3 {
 // WorldBound indicates an expected call of WorldBound
 func (mr *MockShapeMockRecorder) WorldBound() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WorldBound", reflect.TypeOf((*MockShape)(nil).WorldBound))
+}
+
+// ReverseOrientation mocks base method
+func (m *MockShape) ReverseOrientation() bool {
+	ret := m.ctrl.Call(m, "ReverseOrientation")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// ReverseOrientation indicates an expected call of ReverseOrientation
+func (mr *MockShapeMockRecorder) ReverseOrientation() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReverseOrientation", reflect.TypeOf((*MockShape)(nil).ReverseOrientation))
+}
+
+// TransformSwapsHandedness mocks base method
+func (m *MockShape) TransformSwapsHandedness() bool {
+	ret := m.ctrl.Call(m, "TransformSwapsHandedness")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// TransformSwapsHandedness indicates an expected call of TransformSwapsHandedness
+func (mr *MockShapeMockRecorder) TransformSwapsHandedness() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransformSwapsHandedness", reflect.TypeOf((*MockShape)(nil).TransformSwapsHandedness))
 }
 
 // Intersect mocks base method

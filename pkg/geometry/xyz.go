@@ -261,7 +261,7 @@ func (xyz *XYZInt64) Distance(other *XYZInt64) int64 {
 }
 
 func (xyz *XYZInt64) DistanceSquared(other *XYZInt64) float64 {
-	return math.Pow(float64(other.X-xyz.X), 2) + math.Pow(float64(other.Y-xyz.Y), 2) + math.Pow(float64(other.Z-xyz.Z), 2)
+	return float64(other.Sub(xyz).LengthSquared())
 }
 
 func (xyz *XYZInt64) Cross(other *XYZInt64) *XYZInt64 {
@@ -549,7 +549,7 @@ func (xyz *XYZFloat64) Distance(other *XYZFloat64) float64 {
 }
 
 func (xyz *XYZFloat64) DistanceSquared(other *XYZFloat64) float64 {
-	return math.Pow(float64(other.X-xyz.X), 2) + math.Pow(float64(other.Y-xyz.Y), 2) + math.Pow(float64(other.Z-xyz.Z), 2)
+	return float64(other.Sub(xyz).LengthSquared())
 }
 
 func (xyz *XYZFloat64) Cross(other *XYZFloat64) *XYZFloat64 {

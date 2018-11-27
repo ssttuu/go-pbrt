@@ -5,9 +5,8 @@
 package pbrt
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockFilter is a mock of Filter interface

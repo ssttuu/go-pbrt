@@ -125,8 +125,8 @@ func (b *BSDF) NumComponents(flags BxDFType) int {
 }
 
 func (b *BSDF) F(woW, wiW *Vector3f, flags BxDFType) Spectrum {
-	wo := b.WorldToLocal(woW)
 	wi := b.WorldToLocal(wiW)
+	wo := b.WorldToLocal(woW)
 	if wo.Z == 0.0 {
 		return NewSpectrum(0)
 	}

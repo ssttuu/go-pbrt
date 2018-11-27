@@ -5,10 +5,10 @@ import (
 	"image/color"
 	"image/png"
 	"log"
-	"math"
 	"os"
 	"sync"
 	"sync/atomic"
+	"github.com/stupschwartz/go-pbrt/pkg/math"
 )
 
 type FilmTilePixel struct {
@@ -141,9 +141,9 @@ func (f *Film) WriteImage(splatScale float64) {
 			pixel := f.getPixel(&Point2i{x, y})
 
 			imgPng.Set(int(x), int(y), color.NRGBA{
-				R: uint8(pixel.value[0] * 255),
-				G: uint8(pixel.value[1] * 255),
-				B: uint8(pixel.value[2] * 255),
+				R: uint8(math.Clamp(pixel.value[0], 0, 1) * 255),
+				G: uint8(math.Clamp(pixel.value[1], 0, 1) * 255),
+				B: uint8(math.Clamp(pixel.value[2], 0, 1) * 255),
 				A: 255,
 			})
 		}
