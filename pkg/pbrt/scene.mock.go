@@ -5,9 +5,8 @@
 package pbrt
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockScene is a mock of Scene interface

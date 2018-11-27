@@ -34,6 +34,10 @@ func Atan2(y, x float64) float64 {
 	return math.Atan2(y, x)
 }
 
+func Ceil(x float64) float64 {
+	return math.Ceil(x)
+}
+
 func Clamp(v, low, high float64) float64 {
 	if v < low {
 		return low

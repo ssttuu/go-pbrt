@@ -159,6 +159,10 @@ func NewSurfaceInteraction() *SurfaceInteraction {
 func NewSurfaceInteractionWith(p *Point3f, pError *Vector3f, uv *Point2f, wo *Vector3f, dpdu, dpdv *Vector3f, dndu, dndv *Normal3f, time float64, shape Shape, faceIndex int) *SurfaceInteraction {
 	normal := dpdu.Cross(dpdv).Normalized()
 
+	if shape != nil && shape.ReverseOrientation() != shape.TransformSwapsHandedness() {
+		normal = normal.MulScalar(-1)
+	}
+
 	return &SurfaceInteraction{
 		interaction: &interaction{
 			Point:      p,

@@ -5,9 +5,8 @@
 package pbrt
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockPrimitive is a mock of Primitive interface
@@ -31,18 +30,6 @@ func NewMockPrimitive(ctrl *gomock.Controller) *MockPrimitive {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockPrimitive) EXPECT() *MockPrimitiveMockRecorder {
 	return m.recorder
-}
-
-// WorldBound mocks base method
-func (m *MockPrimitive) WorldBound() *Bounds3 {
-	ret := m.ctrl.Call(m, "WorldBound")
-	ret0, _ := ret[0].(*Bounds3)
-	return ret0
-}
-
-// WorldBound indicates an expected call of WorldBound
-func (mr *MockPrimitiveMockRecorder) WorldBound() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WorldBound", reflect.TypeOf((*MockPrimitive)(nil).WorldBound))
 }
 
 // Intersect mocks base method
@@ -103,6 +90,18 @@ func (mr *MockPrimitiveMockRecorder) ComputeScatteringFunctions(si, mode, allowM
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ComputeScatteringFunctions", reflect.TypeOf((*MockPrimitive)(nil).ComputeScatteringFunctions), si, mode, allowMultipleLobes)
 }
 
+// WorldBound mocks base method
+func (m *MockPrimitive) WorldBound() *Bounds3 {
+	ret := m.ctrl.Call(m, "WorldBound")
+	ret0, _ := ret[0].(*Bounds3)
+	return ret0
+}
+
+// WorldBound indicates an expected call of WorldBound
+func (mr *MockPrimitiveMockRecorder) WorldBound() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WorldBound", reflect.TypeOf((*MockPrimitive)(nil).WorldBound))
+}
+
 // MockAggregate is a mock of Aggregate interface
 type MockAggregate struct {
 	ctrl     *gomock.Controller
@@ -124,18 +123,6 @@ func NewMockAggregate(ctrl *gomock.Controller) *MockAggregate {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockAggregate) EXPECT() *MockAggregateMockRecorder {
 	return m.recorder
-}
-
-// WorldBound mocks base method
-func (m *MockAggregate) WorldBound() *Bounds3 {
-	ret := m.ctrl.Call(m, "WorldBound")
-	ret0, _ := ret[0].(*Bounds3)
-	return ret0
-}
-
-// WorldBound indicates an expected call of WorldBound
-func (mr *MockAggregateMockRecorder) WorldBound() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WorldBound", reflect.TypeOf((*MockAggregate)(nil).WorldBound))
 }
 
 // Intersect mocks base method
@@ -194,4 +181,16 @@ func (m *MockAggregate) ComputeScatteringFunctions(si *SurfaceInteraction, mode 
 // ComputeScatteringFunctions indicates an expected call of ComputeScatteringFunctions
 func (mr *MockAggregateMockRecorder) ComputeScatteringFunctions(si, mode, allowMultipleLobes interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ComputeScatteringFunctions", reflect.TypeOf((*MockAggregate)(nil).ComputeScatteringFunctions), si, mode, allowMultipleLobes)
+}
+
+// WorldBound mocks base method
+func (m *MockAggregate) WorldBound() *Bounds3 {
+	ret := m.ctrl.Call(m, "WorldBound")
+	ret0, _ := ret[0].(*Bounds3)
+	return ret0
+}
+
+// WorldBound indicates an expected call of WorldBound
+func (mr *MockAggregateMockRecorder) WorldBound() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WorldBound", reflect.TypeOf((*MockAggregate)(nil).WorldBound))
 }

@@ -261,7 +261,7 @@ func (xyz *XYZGenericType) Distance(other *XYZGenericType) GenericType {
 }
 
 func (xyz *XYZGenericType) DistanceSquared(other *XYZGenericType) float64 {
-	return math.Pow(float64(other.X-xyz.X), 2) + math.Pow(float64(other.Y-xyz.Y), 2) + math.Pow(float64(other.Z-xyz.Z), 2)
+	return float64(other.Sub(xyz).LengthSquared())
 }
 
 func (xyz *XYZGenericType) Cross(other *XYZGenericType) *XYZGenericType {
