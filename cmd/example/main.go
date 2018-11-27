@@ -84,6 +84,11 @@ func main() {
 			nil,
 			pbrt.NewSpectrum(200000),
 		),
+		pbrt.NewPointLight(
+			pbrt.Translate(&pbrt.Vector3f{50, 0, 50}),
+			nil,
+			pbrt.NewSpectrum(10000),
+		),
 	}
 
 	scene := pbrt.NewScene(agg, lights, []pbrt.Light{})
@@ -97,7 +102,7 @@ func main() {
 	boxFilter := pbrt.NewBoxFilter(&pbrt.Point2f{X: 1, Y: 1})
 
 	pixelBounds := &pbrt.Bounds2i{Min: &pbrt.Point2i{X: 0, Y: 0}, Max: resolution}
-	sampler := pbrt.NewRandomSampler(32, 4)
+	sampler := pbrt.NewRandomSampler(8, 4)
 
 	film := pbrt.NewFilm(fmt.Sprintf("build/render-%s.png", time.Now().Format(time.RFC3339)), resolution, cropBounds, boxFilter, 100.0, 1.0, 1.0)
 

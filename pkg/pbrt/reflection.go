@@ -164,7 +164,7 @@ func (b *BSDF) SampleF(woWorld *Vector3f, u *Point2f, t BxDFType) (s Spectrum, w
 	}
 
 	// remap sample u to [0,1)^2
-	uRemapped := &Point2f{u.X*float64(matchingComps) - comp, math.OneMinusEpsilon}
+	uRemapped := &Point2f{X: math.Min(u.X*float64(matchingComps) - comp, math.OneMinusEpsilon), Y: u.Y}
 
 	// sample chosen bxDF
 	wo := b.WorldToLocal(woWorld)
