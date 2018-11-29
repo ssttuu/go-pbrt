@@ -21,7 +21,7 @@ type Integrator interface {
 	SpecularTransmit(ctx context.Context, ray *RayDifferential, si *SurfaceInteraction, scene Scene, sampler Sampler, depth int) Spectrum
 }
 
-func UniformSampleAllLights(it Interaction, scene Scene, sampler Sampler, nLightSamples []int, handleMedia bool) Spectrum {
+func UniformSampleAllLights(it Interaction, scene Scene, sampler Sampler, nLightSamples []int32, handleMedia bool) Spectrum {
 	L := NewSpectrum(0)
 	for j, light := range scene.Lights() {
 		// accumulate contribution of jth light to L
@@ -33,10 +33,10 @@ func UniformSampleAllLights(it Interaction, scene Scene, sampler Sampler, nLight
 			// use a single sample for illumination from light
 			uLight := sampler.Get2D()
 			uScattering := sampler.Get2D()
-			L.AddAssign(EstimateDirect(it, uScattering, light, uLight, scene, sampler, handleMedia, false))
+			L.AddAssign(EstimateDirect(it, *uScattering, light, *uLight, scene, sampler, handleMedia, false))
 		} else {
 			Ld := NewSpectrum(0)
-			for k := 0; k < nSamples; k++ {
+			for k := int32(0); k < nSamples; k++ {
 				Ld.AddAssign(EstimateDirect(it, uScatteringSlice[k], light, uLightSlice[k], scene, sampler, handleMedia, false))
 			}
 
@@ -68,12 +68,12 @@ func UniformSampleOneLight(it Interaction, scene Scene, sampler Sampler, handleM
 	uLight := sampler.Get2D()
 	uScattering := sampler.Get2D()
 
-	spectrum := EstimateDirect(it, uScattering, light, uLight, scene, sampler, handleMedia, false)
+	spectrum := EstimateDirect(it, *uScattering, light, *uLight, scene, sampler, handleMedia, false)
 	spectrum.DivScalar(lightPdf)
 	return spectrum
 }
 
-func EstimateDirect(it Interaction, uScattering *Point2f, light Light, uLight *Point2f, scene Scene, sampler Sampler, handleMedia bool, specular bool) Spectrum {
+func EstimateDirect(it Interaction, uScattering Point2f, light Light, uLight Point2f, scene Scene, sampler Sampler, handleMedia bool, specular bool) Spectrum {
 	bsdfFlags := BSDFAll
 	if !specular {
 		bsdfFlags = BxDFType(BSDFAll &^ BSDFSpecular)
@@ -81,7 +81,7 @@ func EstimateDirect(it Interaction, uScattering *Point2f, light Light, uLight *P
 
 	scatteringPdf := 0.0
 	Ld := NewSpectrum(0)
-	Li, wi, lightPdf, visibility := light.SampleLi(it, uLight)
+	Li, wi, lightPdf, visibility := light.SampleLi(it, &uLight)
 
 	if lightPdf > 0 && !Li.IsBlack() {
 		// compute BSDF for light sampling strategy
@@ -110,9 +110,6 @@ func EstimateDirect(it Interaction, uScattering *Point2f, light Light, uLight *P
 				if !visibility.Unoccluded(scene) {
 					// Shadow ray blocked
 					Li = NewSpectrum(0)
-				} else {
-					// Shadow ray unoccluded
-					//log.Panic("SHADOW RAY FINALLY UNOCCLUDED")
 				}
 			}
 
@@ -137,12 +134,12 @@ func EstimateDirect(it Interaction, uScattering *Point2f, light Light, uLight *P
 		case *SurfaceInteraction:
 			// sample scattered Direction for surface interactions
 			var sampledType BxDFType
-			f, wi, scatteringPdf, sampledType = intr.BSDF.SampleF(intr.wo, uScattering, bsdfFlags)
+			f, wi, scatteringPdf, sampledType = intr.BSDF.SampleF(intr.wo, &uScattering, bsdfFlags)
 			f.MulScalar(wi.AbsDot(intr.shading.normal))
 			sampledSpecular = sampledType&BSDFSpecular != 0
 		case *MediumInteraction:
 			// sample scattered Direction for Medium interactions
-			p := intr.phase.SampleP(intr.wo, wi, uScattering)
+			p := intr.phase.SampleP(intr.wo, wi, &uScattering)
 			f = NewSpectrum(p)
 			scatteringPdf = p
 		default:
@@ -229,52 +226,59 @@ func renderWorker(ctx context.Context, s Integrator, scene Scene, tiles <-chan R
 	return func() error {
 		for rt := range tiles {
 			camera := s.GetCamera()
+
+			filmTile := camera.GetFilm().GetFilmTile(&rt.Bounds)
+
 			for pixelY := rt.Bounds.Min.Y; pixelY < rt.Bounds.Max.Y; pixelY++ {
 				for pixelX := rt.Bounds.Min.X; pixelX < rt.Bounds.Max.X; pixelX++ {
 					pixelPos := &Point2i{pixelX, pixelY}
 					rt.Sampler.StartPixel(pixelPos)
 
-					//for tileSampler.StartNextSample() {
-					// initialize CameraSample for current sample
-					cameraSample := rt.Sampler.GetCameraSample(pixelPos)
+					for rt.Sampler.StartNextSample() {
+						// initialize CameraSample for current sample
+						cameraSample := rt.Sampler.GetCameraSample(pixelPos)
 
-					// generate camera ray for current sample
+						// generate camera ray for current sample
 
-					rayWeight, rd := camera.GenerateRayDifferential(cameraSample)
-					rd.ScaleDifferentials(1.0 / math.Sqrt(float64(rt.Sampler.GetSamplesPerPixel())))
+						rayWeight, rd := camera.GenerateRayDifferential(cameraSample)
+						rd.ScaleDifferentials(1.0 / math.Sqrt(float64(rt.Sampler.GetSamplesPerPixel())))
 
-					// evaluate radiance along camera ray
-					L := NewSpectrum(0)
-					if rayWeight > 0 {
-						L = s.Li(ctx, rd, scene, rt.Sampler, 0)
+						// evaluate radiance along camera ray
+						L := NewSpectrum(0)
+						if rayWeight > 0 {
+							L = s.Li(ctx, rd, scene, rt.Sampler, 0)
+						}
+
+						// TODO: add errors and return them
+						if L.HasNaNs() {
+							L = NewSpectrum(0.1)
+						} else if L.Y() < -1e-5 {
+							L = NewSpectrum(0.5)
+						} else if math.IsInf(L.Y(), 1) {
+							L = NewSpectrum(1.0)
+						}
+
+						// add camera ray's contribution to image
+						filmTile.AddSample(cameraSample.pFilm, L, rayWeight)
+
 					}
 
-					// TODO: add errors and return them
-					if L.HasNaNs() {
-						L = NewSpectrum(0.1)
-					} else if L.Y() < -1e-5 {
-						L = NewSpectrum(0.5)
-					} else if math.IsInf(L.Y(), 1) {
-						L = NewSpectrum(1.0)
-					}
 
-					// add camera ray's contribution to image
-					//filmTile.AddSample(cameraSample.pFilm, L, rayWeight)
-					px := camera.GetFilm().getPixel(pixelPos)
-					px.value = [3]float64{
-						L.Index(0),
-						L.Index(1),
-						L.Index(2),
-					}
 
-					if !L.IsBlack() {
-					}
+					//px := camera.GetFilm().getPixel(pixelPos)
+					//px.value = [3]float64{
+					//	L.Index(0),
+					//	L.Index(1),
+					//	L.Index(2),
+					//}
 
 					// merge image tile into film
 					//camera.GetFilm().MergeFilmTile(filmTile)
 
 				}
 			}
+
+			camera.GetFilm().MergeFilmTile(filmTile)
 
 			select {
 			case <-ctx.Done():
@@ -452,7 +456,7 @@ type DirectLightingIntegrator struct {
 
 	strategy      LightStrategy
 	maxDepth      int
-	nLightSamples []int
+	nLightSamples []int32
 }
 
 func NewDirectLightingIntegrator(strategy LightStrategy, maxDepth int, camera Camera, sampler Sampler, pixelBounds *Bounds2i) *DirectLightingIntegrator {

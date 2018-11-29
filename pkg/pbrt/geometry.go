@@ -37,6 +37,13 @@ func NewPoint2iFromPoint2f(p *Point2f) *Point2i {
 	}
 }
 
+func NewBound2fFromBounds2i(b *Bounds2i) *Bounds2f {
+	return &Bounds2f{
+		Min: NewPoint2fFromPoint2i(b.Min),
+		Max: NewPoint2fFromPoint2i(b.Max),
+	}
+}
+
 func CoordinateSystem(v1 *Vector3f) (v2, v3 *Vector3f) {
 	if math.Abs(v1.X) > math.Abs(v1.Y) {
 		v := v1.X*v1.X + v1.Z*v1.Z

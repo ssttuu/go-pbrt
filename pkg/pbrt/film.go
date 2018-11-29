@@ -1,6 +1,7 @@
 package pbrt
 
 import (
+	"github.com/stupschwartz/go-pbrt/pkg/math"
 	"image"
 	"image/color"
 	"image/png"
@@ -8,7 +9,6 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
-	"github.com/stupschwartz/go-pbrt/pkg/math"
 )
 
 type FilmTilePixel struct {
@@ -104,7 +104,7 @@ func (f *Film) GetPhysicalExtent() *Bounds2f {
 
 func (f *Film) GetFilmTile(sampleBounds *Bounds2i) *FilmTile {
 	halfPixel := &Vector2f{0.5, 0.5}
-	floatBounds := &Bounds2f{NewPoint2fFromPoint2i(sampleBounds.Min), NewPoint2fFromPoint2i(sampleBounds.Max)}
+	floatBounds := NewBound2fFromBounds2i(sampleBounds)
 	p0 := NewPoint2iFromPoint2f(floatBounds.Min.Sub(halfPixel).Sub(f.Filter.GetRadius()).Ceil())
 	p1 := NewPoint2iFromPoint2f(floatBounds.Max.Sub(halfPixel).Add(f.Filter.GetRadius()).Floor()).Add(&Point2i{1, 1})
 	tilePixelBounds := f.CroppedPixelBounds.Intersect(&Bounds2i{p0, p1})
@@ -113,9 +113,21 @@ func (f *Film) GetFilmTile(sampleBounds *Bounds2i) *FilmTile {
 
 func (f *Film) MergeFilmTile(tile *FilmTile) {
 	f.mutex.Lock()
-	// TODO
+	defer f.mutex.Unlock()
 
-	f.mutex.Unlock()
+	for pixelY := tile.pixelBounds.Min.Y; pixelY < tile.pixelBounds.Max.Y; pixelY++ {
+		for pixelX := tile.pixelBounds.Min.X; pixelX < tile.pixelBounds.Max.X; pixelX++ {
+			pixel := &Point2i{pixelX, pixelY}
+			tilePixel := tile.GetPixel(pixel)
+			mergePixel := f.getPixel(pixel)
+			xyz := tilePixel.contribSum.ToXYZ()
+
+			for i := 0; i < 3; i++ {
+				mergePixel.value[i] += xyz[i]
+			}
+			mergePixel.filterWeightSum += tilePixel.filterWeightSum
+		}
+	}
 }
 
 func (f *Film) SetImage(img Spectrum) {
@@ -174,43 +186,70 @@ type FilmTile struct {
 	filterRadius, invFilterRadius *Vector2f
 	filterTable                   []float64
 	filterTableSize               int
-	pixels                        []*FilmTilePixel
+	pixels                        []FilmTilePixel
 	maxSampleLuminance            float64
 }
 
 func NewFilmTile(pixelBounds *Bounds2i, filterRadius *Vector2f, filterTable []float64, filterTableSize int, maxSampleLuminance float64) *FilmTile {
+	pixels := make([]FilmTilePixel, int64(math.Max(0, float64(pixelBounds.Area()))))
+	for i := range pixels {
+		pixels[i].contribSum = NewSpectrum(0)
+	}
+
 	return &FilmTile{
 		pixelBounds:        pixelBounds,
 		filterRadius:       filterRadius,
+		invFilterRadius:    &Vector2f{1.0 / filterRadius.X,1.0 / filterRadius.Y},
 		filterTable:        filterTable,
 		filterTableSize:    filterTableSize,
 		maxSampleLuminance: maxSampleLuminance,
-		pixels:             make([]*FilmTilePixel, int64(math.Max(0, float64(pixelBounds.Area())))),
+		pixels:             pixels,
 	}
 }
 
 func (f *FilmTile) AddSample(pFilm *Point2f, L Spectrum, sampleWeight float64) {
-	//if L.Y() > f.maxSampleLuminance {
-	//	L = L.MulScalar(f.maxSampleLuminance / L.Y())
-	//}
-	//
-	//// compute sample's raster bounds
-	//pFilmDiscrete := pFilm.Sub(&Vector2f{0.5, 0.5})
-	//p0f := pFilmDiscrete.Sub(f.filterRadius).Ceil()
-	//p1f := pFilmDiscrete.Add(f.filterRadius).Floor().Add(&Point2f{1, 1})
-	//p0 := &Point2i{int64(math.Max(p0f.X, float64(f.pixelBounds.Min.X))), int64(math.Max(p0f.Y, float64(f.pixelBounds.Min.Y)))}
-	//p1 := &Point2i{int64(math.Min(p1f.X, float64(f.pixelBounds.Max.X))), int64(math.Min(p1f.Y, float64(f.pixelBounds.Max.Y)))}
+	if L.Y() > f.maxSampleLuminance {
+		L = L.MulScalar(f.maxSampleLuminance / L.Y())
+	}
+
+	// compute sample's raster bounds
+	pFilmDiscrete := pFilm.Sub(&Vector2f{0.5, 0.5})
+	p0f := pFilmDiscrete.Sub(f.filterRadius).Ceil()
+	p1f := pFilmDiscrete.Add(f.filterRadius).Floor().Add(&Point2f{1, 1})
+	p0 := &Point2i{int64(math.Max(p0f.X, float64(f.pixelBounds.Min.X))), int64(math.Max(p0f.Y, float64(f.pixelBounds.Min.Y)))}
+	p1 := &Point2i{int64(math.Min(p1f.X, float64(f.pixelBounds.Max.X))), int64(math.Min(p1f.Y, float64(f.pixelBounds.Max.Y)))}
 
 	// loop over filter support and add sample to pixel arrays
 
 	// precompute x and y filter table offsets
+	ifx := make([]int, p1.X - p0.X)
+	for x := p0.X; x < p1.X; x++ {
+		fx := math.Abs((float64(x) - pFilmDiscrete.X) * f.invFilterRadius.X * float64(f.filterTableSize))
+		ifx[x - p0.X] = int(math.Min(math.Floor(fx), float64(f.filterTableSize) - 1))
+	}
+	ify := make([]int, p1.Y - p0.Y)
+	for y := p0.Y; y < p1.Y; y++ {
+		fy := math.Abs((float64(y) - pFilmDiscrete.Y) * f.invFilterRadius.Y * float64(f.filterTableSize))
+		ify[y - p0.Y] = int(math.Min(math.Floor(fy), float64(f.filterTableSize) - 1))
+	}
+	for y := p0.Y; y < p1.Y; y++ {
+		for x := p0.X; x < p1.X; x++ {
+			offset := ify[y - p0.Y] * f.filterTableSize + ifx[x - p0.X]
+			filterWeight := f.filterTable[offset]
+
+			// update pixel values with filtered sample contribution
+			pixel := f.GetPixel(&Point2i{x, y})
+			pixel.contribSum.AddAssign(L.MulScalar(sampleWeight * filterWeight))
+			pixel.filterWeightSum += filterWeight
+		}
+	}
 
 }
 
 func (f *FilmTile) GetPixel(p *Point2i) *FilmTilePixel {
 	width := f.pixelBounds.Max.X - f.pixelBounds.Min.X
 	offset := (p.X - f.pixelBounds.Min.X) + (p.Y-f.pixelBounds.Min.Y)*width
-	return f.pixels[offset]
+	return &f.pixels[offset]
 }
 
 func (f *FilmTile) GetPixelBounds() *Bounds2i {

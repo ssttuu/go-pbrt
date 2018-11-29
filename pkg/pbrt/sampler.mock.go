@@ -33,9 +33,9 @@ func (m *MockSampler) EXPECT() *MockSamplerMockRecorder {
 }
 
 // GetSamplesPerPixel mocks base method
-func (m *MockSampler) GetSamplesPerPixel() int64 {
+func (m *MockSampler) GetSamplesPerPixel() int32 {
 	ret := m.ctrl.Call(m, "GetSamplesPerPixel")
-	ret0, _ := ret[0].(int64)
+	ret0, _ := ret[0].(int32)
 	return ret0
 }
 
@@ -81,7 +81,7 @@ func (mr *MockSamplerMockRecorder) Get2D() *gomock.Call {
 }
 
 // Get1DArray mocks base method
-func (m *MockSampler) Get1DArray(n int) []float64 {
+func (m *MockSampler) Get1DArray(n int32) []float64 {
 	ret := m.ctrl.Call(m, "Get1DArray", n)
 	ret0, _ := ret[0].([]float64)
 	return ret0
@@ -93,9 +93,9 @@ func (mr *MockSamplerMockRecorder) Get1DArray(n interface{}) *gomock.Call {
 }
 
 // Get2DArray mocks base method
-func (m *MockSampler) Get2DArray(n int) []*Point2f {
+func (m *MockSampler) Get2DArray(n int32) []Point2f {
 	ret := m.ctrl.Call(m, "Get2DArray", n)
-	ret0, _ := ret[0].([]*Point2f)
+	ret0, _ := ret[0].([]Point2f)
 	return ret0
 }
 
@@ -139,9 +139,9 @@ func (mr *MockSamplerMockRecorder) StartNextSample() *gomock.Call {
 }
 
 // RoundCount mocks base method
-func (m *MockSampler) RoundCount(n int) int {
+func (m *MockSampler) RoundCount(n int32) int32 {
 	ret := m.ctrl.Call(m, "RoundCount", n)
-	ret0, _ := ret[0].(int)
+	ret0, _ := ret[0].(int32)
 	return ret0
 }
 
@@ -151,7 +151,7 @@ func (mr *MockSamplerMockRecorder) RoundCount(n interface{}) *gomock.Call {
 }
 
 // Request2DArray mocks base method
-func (m *MockSampler) Request2DArray(n int) {
+func (m *MockSampler) Request2DArray(n int32) {
 	m.ctrl.Call(m, "Request2DArray", n)
 }
 

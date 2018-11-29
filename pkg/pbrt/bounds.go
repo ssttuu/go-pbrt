@@ -93,7 +93,7 @@ func (b *Bounds2i) Offset(other *Point2i) *Vector2i {
 func (b *Bounds2i) Intersect(other *Bounds2i) *Bounds2i {
 	return &Bounds2i{
 		Min: &Point2i{int64(math.Max(float64(b.Min.X), float64(other.Min.X))), int64(math.Max(float64(b.Min.Y), float64(other.Min.Y)))},
-		Max: &Point2i{int64(math.Max(float64(b.Max.X), float64(other.Max.X))), int64(math.Max(float64(b.Max.Y), float64(other.Max.Y)))},
+		Max: &Point2i{int64(math.Min(float64(b.Max.X), float64(other.Max.X))), int64(math.Min(float64(b.Max.Y), float64(other.Max.Y)))},
 	}
 }
 
