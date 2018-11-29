@@ -1,0 +1,18 @@
+steps:
+  - name: 'gcr.io/cloud-builders/go'
+    args: [
+      'get', '-t',
+      './cmd/...',
+      './pkg/...',
+    ]
+    env:
+      - 'PROJECT_ROOT=github.com/stupschwartz/go-pbrt'
+  - name: 'gcr.io/cloud-builders/go'
+    args: [
+      'test',
+      '-v',
+      './cmd/...',
+      './pkg/...',
+    ]
+    env:
+      - 'PROJECT_ROOT=github.com/stupschwartz/go-pbrt'
