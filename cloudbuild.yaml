@@ -1,18 +1,10 @@
 steps:
-  - name: 'gcr.io/cloud-builders/go'
+  - name: 'golang:1.11'
     args: [
-      'get', '-t',
-      './cmd/...',
-      './pkg/...',
-    ]
-    env:
-      - 'PROJECT_ROOT=github.com/stupschwartz/go-pbrt'
-  - name: 'gcr.io/cloud-builders/go'
-    args: [
+      'go',
       'test',
       '-v',
+      '-bench=.',
       './cmd/...',
       './pkg/...',
     ]
-    env:
-      - 'PROJECT_ROOT=github.com/stupschwartz/go-pbrt'
