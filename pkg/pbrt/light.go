@@ -21,7 +21,7 @@ func IsDeltaLight(flags LightFlag) bool {
 
 type Light interface {
 	GetFlags() LightFlag
-	GetSamples() int
+	GetSamples() int32
 	Preprocess()
 
 	SampleLi(ref Interaction, u *Point2f) (s Spectrum, wi *Vector3f, pdf float64, vis *VisibilityTester)
@@ -38,7 +38,7 @@ func Le(r *RayDifferential) Spectrum {
 
 type PointLight struct {
 	flags          LightFlag
-	nSamples       int
+	nSamples       int32
 	MediumAccessor *MediumAccessor
 	lightToWorld   *Transform
 	worldToLight   *Transform
@@ -64,7 +64,7 @@ func (l *PointLight) GetFlags() LightFlag {
 	return l.flags
 }
 
-func (l *PointLight) GetSamples() int {
+func (l *PointLight) GetSamples() int32 {
 	return l.nSamples
 }
 

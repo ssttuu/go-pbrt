@@ -2,7 +2,6 @@ package pbrt
 
 import (
 	"fmt"
-
 	"github.com/stupschwartz/go-pbrt/pkg/math"
 )
 
@@ -31,6 +30,14 @@ const DefaultSpectrumType = SpectrumTypeRGB
 //	rgbIllum2SpectRed, rgbIllum2SpectGreen      *SampledSpectrum
 //	rgbIllum2SpectBlue                          *SampledSpectrum
 //)
+
+func RGBToXYZ(rgb Spectrum) Spectrum {
+	return Spectrum{
+		0.412453*rgb[0] + 0.357580*rgb[1] + 0.180423*rgb[2],
+		0.212671*rgb[0] + 0.715160*rgb[1] + 0.072169*rgb[2],
+		0.019334*rgb[0] + 0.119193*rgb[1] + 0.950227*rgb[2],
+	}
+}
 
 type Spectrum []float64
 
@@ -210,4 +217,8 @@ func (s Spectrum) HasNaNs() bool {
 
 func (s Spectrum) Y() float64 {
 	return 0
+}
+
+func (s Spectrum) ToXYZ() Spectrum {
+	return RGBToXYZ(s)
 }

@@ -45,9 +45,9 @@ func (mr *MockLightMockRecorder) GetFlags() *gomock.Call {
 }
 
 // GetSamples mocks base method
-func (m *MockLight) GetSamples() int {
+func (m *MockLight) GetSamples() int32 {
 	ret := m.ctrl.Call(m, "GetSamples")
-	ret0, _ := ret[0].(int)
+	ret0, _ := ret[0].(int32)
 	return ret0
 }
 
@@ -182,9 +182,9 @@ func (mr *MockAreaLighterMockRecorder) GetFlags() *gomock.Call {
 }
 
 // GetSamples mocks base method
-func (m *MockAreaLighter) GetSamples() int {
+func (m *MockAreaLighter) GetSamples() int32 {
 	ret := m.ctrl.Call(m, "GetSamples")
-	ret0, _ := ret[0].(int)
+	ret0, _ := ret[0].(int32)
 	return ret0
 }
 

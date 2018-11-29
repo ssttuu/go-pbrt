@@ -82,12 +82,12 @@ func main() {
 		pbrt.NewPointLight(
 			pbrt.Translate(&pbrt.Vector3f{300, 0, 0}),
 			nil,
-			pbrt.NewSpectrum(200000),
+			pbrt.NewSpectrum(4000),
 		),
 		pbrt.NewPointLight(
 			pbrt.Translate(&pbrt.Vector3f{50, 0, 50}),
 			nil,
-			pbrt.NewSpectrum(10000),
+			pbrt.NewSpectrum(400),
 		),
 	}
 
@@ -96,7 +96,7 @@ func main() {
 	shutterOpen, shutterClose := 0.0, 1.0
 
 	resolution := &pbrt.Point2i{X: 1920, Y: 1080}
-	resolution = resolution.DivScalar(2)
+	resolution = resolution.DivScalar(1)
 
 	cropBounds := &pbrt.Bounds2f{Min: &pbrt.Point2f{X: 0, Y: 0}, Max: &pbrt.Point2f{X: 1, Y: 1}}
 	boxFilter := pbrt.NewBoxFilter(&pbrt.Point2f{X: 1, Y: 1})
