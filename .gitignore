@@ -26,6 +26,3 @@ _testmain.go
 .idea/
 
 build/
-vendor/
-vendor.orig/
-run

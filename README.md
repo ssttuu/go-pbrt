@@ -5,7 +5,7 @@ Phsically Based Ray Tracer written in Go, following the Physically Based Renderi
 Run
 
 ```
-./run render
+./run example
 ```
 
 ![Sphere Render](./image.png)

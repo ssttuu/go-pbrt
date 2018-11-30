@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+function example() {
+    go run ./cmd/example/*.go
+}
+
+function tests() {
+    go test -v ./{cmd,internal,pkg}/...
+}
+
+"$@"
