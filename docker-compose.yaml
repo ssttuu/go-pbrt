@@ -2,24 +2,8 @@ version: '2'
 
 services:
   render:
-    image: golang:1.9
-    working_dir: /go/src/github.com/stupschwartz/go-pbrt
-    command: go run main.go
+    image: golang:1.11
+    command: go run ./cmd/example/main.go
+    working_dir: /app
     volumes:
-      - /tmp/cache:/go/src
-      - .:/go/src/github.com/stupschwartz/go-pbrt
-    depends_on:
-      - jaeger
-
-  jaeger:
-    image: jaegertracing/all-in-one:latest
-    environment:
-      - COLLECTOR_ZIPKIN_HTTP_PORT=9411
-    ports:
-      - 5775:5775/udp
-      - 6831:6831/udp
-      - 6832:6832/udp
-      - 5778:5778
-      - 16686:16686
-      - 14268:14268
-      - 9411:9411
+      - .:/app
