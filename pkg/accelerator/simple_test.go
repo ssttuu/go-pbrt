@@ -107,5 +107,4 @@ func TestSimple_IntersectP(t *testing.T) {
 	s := Simple{primitives: []pbrt.Primitive{prim}}
 
 	assert.False(t, s.IntersectP(ray))
-
 }
