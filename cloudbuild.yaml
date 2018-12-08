@@ -1,10 +1,14 @@
 steps:
   - name: 'golang:1.11'
-    args: [
-      'go',
-      'test',
-      '-v',
-      '-bench=.',
-      './cmd/...',
-      './pkg/...',
-    ]
+    args: ['go', 'test', '-v', './cmd/...', './pkg/...', ]
+  - name: 'golang:1.11'
+    args: ['bash', '-c', 'go test -bench=. -benchmem ./cmd/... ./pkg/... > performance_results.out']
+  - name: 'gcr.io/i-m-a-g-e-s/go-bench-report:v0.0.2'
+    secretEnv: ['GOOGLE_APPLICATION_CREDENTIALS']
+    entrypoint: 'sh'
+    args: ['-c', 'cat performance_results.out | go-bench-report -p $PROJECT_ID -b $BRANCH_NAME -g $SHORT_SHA -v $(cat VERSION) ']
+
+secrets:
+  - kmsKeyName: projects/pbrt-224003/locations/global/keyRings/pbrt/cryptoKeys/pbrt
+    secretEnv:
+      GOOGLE_APPLICATION_CREDENTIALS: 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
