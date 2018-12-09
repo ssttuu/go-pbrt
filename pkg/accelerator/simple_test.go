@@ -3,7 +3,6 @@ package accelerator
 import (
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stupschwartz/go-pbrt/pkg/pbrt"
 )
@@ -39,72 +38,71 @@ var primitives = []pbrt.Primitive{
 }
 
 func TestSimple_Intersect(t *testing.T) {
-	s := Simple{primitives: primitives}
-	radius := &pbrt.Point3f{1,1,1}
-
-	//
-	//ray := pbrt.NewRay(&pbrt.Point3f{0, 0, 0}, &pbrt.Vector3f{0, 0, 1.0}, 0)
-	//si := pbrt.NewSurfaceInteraction()
-	//intersects := s.Intersect(ray, si)
-	//assert.True(t, intersects)
-	//assert.Equal(t, &pbrt.Point3f{0.0, 0.0, 4.0}, si.Point)
-	//
-	////
-	//ray = pbrt.NewRay(&pbrt.Point3f{0, 0, 0}, &pbrt.Vector3f{1, 1, 1}, 0)
-	//si = pbrt.NewSurfaceInteraction()
-	//intersects = s.Intersect(ray, si)
-	//assert.True(t, intersects)
-	//
-	//expected := &pbrt.Point3f{10, 10, 10}
-	//assert.Equal(t, expected.Sub(radius.Normalized()), si.Point)
-
-	//
-	dir := &pbrt.Vector3f{-1, -1, -1}
-	ray := pbrt.NewRay(&pbrt.Point3f{15, 15, 15}, dir.Normalized(), 0)
+	direction := &pbrt.Vector3f{-1, -1, -1}
+	direction.Normalize()
+	ray := pbrt.NewRay(&pbrt.Point3f{15, 15, 15}, direction, 0)
 	si := pbrt.NewSurfaceInteraction()
+
+	s := Simple{primitives: primitives}
+
+	radius := &pbrt.Point3f{1, 1, 1}
+	radius.Normalize()
+	expected := &pbrt.Point3f{10, 10, 10}
+	expected.AddAssign(radius)
+
 	intersects := s.Intersect(ray, si)
 	assert.True(t, intersects)
-
-	expected := &pbrt.Point3f{10, 10, 10}
-	assert.Equal(t, expected.Add(radius.Normalized()), si.Point)
+	assert.Equal(t, expected, si.Point)
 
 }
 
 func TestSimple_Intersect_ReturnsFalseWhenNoIntersections(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	prim := pbrt.NewMockPrimitive(ctrl)
-
-	ray := pbrt.NewRay(&pbrt.Point3f{0, 0, 0}, &pbrt.Vector3f{0, 0, 1.0}, 0)
+	ray := pbrt.NewRay(&pbrt.Point3f{0, 0, 0}, &pbrt.Vector3f{0, 0, -1.0}, 0)
 	si := pbrt.NewSurfaceInteraction()
 
-	prim.
-		EXPECT().
-		Intersect(ray, gomock.Any()).
-		Times(1).
-		Return(false)
-
-	s := Simple{primitives: []pbrt.Primitive{prim}}
+	s := Simple{primitives: primitives}
 
 	intersects := s.Intersect(ray, si)
 	assert.False(t, intersects)
 }
 
 func TestSimple_IntersectP(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+	tests := []struct {
+		ray      *pbrt.Ray
+		expected bool
+	}{
+		{
+			ray: pbrt.NewRay(
+				&pbrt.Point3f{0, 0, 0},
+				&pbrt.Vector3f{0, 0, 1.0},
+				0),
+			expected: true,
+		},
+		{
+			ray: pbrt.NewRay(
+				&pbrt.Point3f{0, 0, 0},
+				&pbrt.Vector3f{0, 0, -1.0},
+				0),
+			expected: false,
+		},
+		{
+			ray: pbrt.NewRay(
+				&pbrt.Point3f{0, 0, 500},
+				&pbrt.Vector3f{0, 0, -1.0},
+				0),
+			expected: true,
+		},
+		{
+			ray: pbrt.NewRay(
+				&pbrt.Point3f{10, 10, 500},
+				&pbrt.Vector3f{0, 0, -1.0},
+				0),
+			expected: true,
+		},
+	}
 
-	prim := pbrt.NewMockPrimitive(ctrl)
-	ray := pbrt.NewRay(&pbrt.Point3f{0, 0, 0}, &pbrt.Vector3f{0, 0, 1.0}, 0)
-
-	prim.
-		EXPECT().
-		IntersectP(ray).
-		Times(1).
-		Return(false)
-
-	s := Simple{primitives: []pbrt.Primitive{prim}}
-
-	assert.False(t, s.IntersectP(ray))
+	s := Simple{primitives: primitives}
+	for _, test := range tests {
+		assert.Equal(t, test.expected, s.IntersectP(test.ray))
+	}
 }

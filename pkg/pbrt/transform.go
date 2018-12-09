@@ -322,12 +322,11 @@ func (t *Transform) TransformSurfaceInteraction(si *SurfaceInteraction) *Surface
 }
 
 func (t *Transform) TransformBounds(b *Bounds3) *Bounds3 {
-	pError := new(Vector3f)
-	corner, _ := t.TransformPoint(b.Min, pError)
+	corner, _ := t.TransformPoint(b.Min, new(Vector3f))
 	ret := &Bounds3{Min: corner, Max: corner}
 
 	for i := 1; i < 8; i++ {
-		corner, _ = t.TransformPoint(b.Corner(i), pError)
+		corner, _ = t.TransformPoint(b.Corner(i), new(Vector3f))
 		ret.UnionPoint(corner)
 	}
 	return ret

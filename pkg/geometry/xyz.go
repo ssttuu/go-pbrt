@@ -240,6 +240,20 @@ func (xyz *XYZInt64) DivScalar(other int64) *XYZInt64 {
 	}
 }
 
+func (xyz *XYZInt64) IsNegative() [3]int {
+	out := [3]int{}
+	if xyz.X < 0 {
+		out[0] = 1
+	}
+	if xyz.Y < 0 {
+		out[1] = 1
+	}
+	if xyz.Z < 0 {
+		out[2] = 1
+	}
+	return out
+}
+
 func (xyz *XYZInt64) Abs() *XYZInt64 {
 	return &XYZInt64{
 		int64(math.Abs(float64(xyz.X))),
@@ -526,6 +540,20 @@ func (xyz *XYZFloat64) DivScalar(other float64) *XYZFloat64 {
 		xyz.Y / other,
 		xyz.Z / other,
 	}
+}
+
+func (xyz *XYZFloat64) IsNegative() [3]int {
+	out := [3]int{}
+	if xyz.X < 0 {
+		out[0] = 1
+	}
+	if xyz.Y < 0 {
+		out[1] = 1
+	}
+	if xyz.Z < 0 {
+		out[2] = 1
+	}
+	return out
 }
 
 func (xyz *XYZFloat64) Abs() *XYZFloat64 {

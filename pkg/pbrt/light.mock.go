@@ -5,8 +5,9 @@
 package pbrt
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockLight is a mock of Light interface

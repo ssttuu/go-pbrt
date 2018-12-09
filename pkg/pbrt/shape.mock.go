@@ -5,8 +5,9 @@
 package pbrt
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockShape is a mock of Shape interface

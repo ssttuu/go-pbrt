@@ -5,8 +5,9 @@
 package pbrt
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockInteraction is a mock of Interaction interface

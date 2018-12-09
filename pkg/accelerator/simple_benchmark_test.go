@@ -9,7 +9,7 @@ var result bool
 
 func spheres(n int) []pbrt.Primitive {
 	var prims []pbrt.Primitive
-	for i := 0; i < n; i ++ {
+	for i := 0; i < n; i++ {
 		prims = append(prims, pbrt.NewGeometricPrimitive(
 			pbrt.NewSphereShape(
 				"",
@@ -23,7 +23,7 @@ func spheres(n int) []pbrt.Primitive {
 	return prims
 }
 
-func benchmarkSimple_Intersect(b *testing.B, n int)  {
+func benchmarkSimple_Intersect(b *testing.B, n int) {
 	s := Simple{primitives: spheres(n)}
 	dir := &pbrt.Vector3f{-1, -1, -1}
 	ray := pbrt.NewRay(&pbrt.Point3f{15, 15, 15}, dir.Normalized(), 0)
@@ -35,7 +35,7 @@ func benchmarkSimple_Intersect(b *testing.B, n int)  {
 	}
 }
 
-func BenchmarkSimple_Intersect1(b *testing.B) {benchmarkSimple_Intersect(b, 1)}
-func BenchmarkSimple_Intersect10(b *testing.B) {benchmarkSimple_Intersect(b, 10)}
-func BenchmarkSimple_Intersect100(b *testing.B) {benchmarkSimple_Intersect(b, 100)}
-func BenchmarkSimple_Intersect1000(b *testing.B) {benchmarkSimple_Intersect(b, 1000)}
+func BenchmarkSimple_Intersect1(b *testing.B)    { benchmarkSimple_Intersect(b, 1) }
+func BenchmarkSimple_Intersect10(b *testing.B)   { benchmarkSimple_Intersect(b, 10) }
+func BenchmarkSimple_Intersect100(b *testing.B)  { benchmarkSimple_Intersect(b, 100) }
+func BenchmarkSimple_Intersect1000(b *testing.B) { benchmarkSimple_Intersect(b, 1000) }

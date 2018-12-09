@@ -1,10 +1,12 @@
 package accelerator
 
 import (
-	"fmt"
+	"context"
 	"log"
 	"math"
 	"sync/atomic"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/stupschwartz/go-pbrt/pkg/pbrt"
 )
@@ -33,9 +35,9 @@ func NewBVHPrimitiveInfo(primitiveNumber int, bounds *pbrt.Bounds3) *BVHPrimitiv
 }
 
 type BVHBuildNode struct {
-	bounds          *pbrt.Bounds3
-	children        [2][]*BVHBuildNode
-	splitAxis       int
+	bounds          pbrt.Bounds3
+	children        [2]*BVHBuildNode
+	splitAxis       uint8
 	firstPrimOffset int64
 	nPrimitives     int64
 }
@@ -43,15 +45,22 @@ type BVHBuildNode struct {
 func (bn *BVHBuildNode) InitLeaf(first, n int64, b pbrt.Bounds3) {
 	bn.firstPrimOffset = first
 	bn.nPrimitives = n
-	bn.bounds = &b
+	bn.bounds = b
+
 	bn.children[0] = nil
 	bn.children[1] = nil
 }
 
-func (bn *BVHBuildNode) InitInterior(axis int, c0, c1 []*BVHBuildNode) {
+func (bn *BVHBuildNode) InitInterior(axis uint8, c0, c1 *BVHBuildNode) {
 	bn.children[0] = c0
 	bn.children[1] = c1
-	bn.bounds = c0[0].bounds.Union(c1[0].bounds)
+
+	bn.bounds = pbrt.Bounds3{
+		Min: c0.bounds.Min,
+		Max: c0.bounds.Max,
+	}
+	bn.bounds.Union(&c1.bounds)
+
 	bn.splitAxis = axis
 	bn.nPrimitives = 0
 }
@@ -62,15 +71,16 @@ type MortonPrimitive struct {
 }
 
 type LBVHTreelet struct {
-	startIndex  int64
-	nPrimitives int64
-	buildNodes  []*BVHBuildNode
+	startIndex   int64
+	nPrimitives  int64
+	buildNodes   []BVHBuildNode
+	finishedNode *BVHBuildNode
 }
 
 type LinearBVHNode struct {
-	bounds *pbrt.Bounds3
+	bounds pbrt.Bounds3
 
-	primitiveOffset, secondChildOffset int64
+	primitiveOffset, secondChildOffset uint64
 	nPrimitives                        uint64
 	axis                               uint8
 	pad                                [1]uint8
@@ -150,19 +160,33 @@ func RadixSortInPlace(v *[]*MortonPrimitive) {
 	}
 }
 
-func PartitionPrimitiveInfo(in []*BVHPrimitiveInfo, f func(pi *BVHPrimitiveInfo) bool) int64 {
+func PartitionPrimitiveInfoAt(in []*BVHPrimitiveInfo, start, end, pivot int64, f func(a, b *BVHPrimitiveInfo) bool) int64 {
+	pivotValue := in[pivot]
+	in[pivot], in[end] = in[end], in[pivot]
+
+	for i := start; i < end; i++ {
+		if f(in[i], pivotValue) {
+			in[start], in[i] = in[i], in[start]
+			start++
+		}
+	}
+	in[end], in[start] = in[start], in[end]
+	return start
+}
+
+func PartitionBuildNode(in []BVHBuildNode, f func(pi *BVHBuildNode) bool) int64 {
 	var first int64
 	var last = int64(len(in) - 1)
 
 OuterLoop:
 	for first != last {
-		for f(in[first]) {
+		for f(&in[first]) {
 			first++
 			if first == last {
 				break OuterLoop
 			}
 		}
-		for !f(in[last]) {
+		for !f(&in[last]) {
 			last--
 			if first == last {
 				break OuterLoop
@@ -175,75 +199,30 @@ OuterLoop:
 	return first
 }
 
-func PartitionPrimitiveInfoAt(in []*BVHPrimitiveInfo, pivot int64, f func(a, b *BVHPrimitiveInfo) bool) int {
-	first := 0
-	last := len(in) - 1
+func PartitionBuildNodeAt(in []*BVHBuildNode, start, end, pivot int64, f func(a, b *BVHBuildNode) bool) int64 {
 	pivotValue := in[pivot]
-	in[pivot], in[last] = in[last], in[pivot]
-	//storeIndex := first
+	in[pivot], in[end] = in[end], in[pivot]
 
-	for i := first; i < last; i++ {
+	for i := start; i < end; i++ {
 		if f(in[i], pivotValue) {
-			in[first], in[i] = in[i], in[first]
-			first++
+			in[start], in[i] = in[i], in[start]
+			start++
 		}
 	}
-	in[last], in[first] = in[first], in[last]
-	return first
+	in[end], in[start] = in[start], in[end]
+	return start
 }
 
-func PartitionBuildNode(in []*BVHBuildNode, f func(pi *BVHBuildNode) bool) int64 {
-	var first int64
-	var last = int64(len(in) - 1)
-
-OuterLoop:
-	for first != last {
-		for f(in[first]) {
-			first++
-			if first == last {
-				break OuterLoop
-			}
-		}
-		for !f(in[last]) {
-			last--
-			if first == last {
-				break OuterLoop
-			}
-		}
-		in[first], in[last] = in[last], in[first]
-		first++
-	}
-
-	return first
-}
-
-func PartitionBuildNodeAt(in []*BVHBuildNode, pivot int64, f func(a, b *BVHBuildNode) bool) int {
-	first := 0
-	last := len(in) - 1
-	pivotValue := in[pivot]
-	in[pivot], in[last] = in[last], in[pivot]
-	//storeIndex := first
-
-	for i := first; i < last; i++ {
-		if f(in[i], pivotValue) {
-			in[first], in[i] = in[i], in[first]
-			first++
-		}
-	}
-	in[last], in[first] = in[first], in[last]
-	return first
-}
-
-type BVHAccel struct {
-	maxPrimsInNode int64
+type BVH struct {
 	splitMethod    SplitMethod
+	maxPrimsInNode uint8
 	primitives     []pbrt.Primitive
-	nodes          []*LinearBVHNode
+	nodes          []LinearBVHNode
 }
 
-func NewBVHAccel(primitives []pbrt.Primitive, maxPrimsInNode int, splitMethod SplitMethod) *BVHAccel {
-	bvh := &BVHAccel{
-		maxPrimsInNode: int64(math.Min(255, float64(maxPrimsInNode))),
+func NewBVH(primitives []pbrt.Primitive, maxPrimsInNode int, splitMethod SplitMethod) *BVH {
+	bvh := &BVH{
+		maxPrimsInNode: uint8(math.Min(255, float64(maxPrimsInNode))),
 		splitMethod:    splitMethod,
 		primitives:     primitives,
 	}
@@ -267,65 +246,68 @@ func NewBVHAccel(primitives []pbrt.Primitive, maxPrimsInNode int, splitMethod Sp
 	var totalNodes int64
 	var orderedPrims []pbrt.Primitive
 
-	var nodes []*BVHBuildNode
+	var root *BVHBuildNode
 	if splitMethod == SplitHLBVH {
-		nodes = bvh.HLBVHBuild(primitiveInfo, &totalNodes, &orderedPrims)
+		root = bvh.HLBVHBuild(primitiveInfo, &totalNodes, &orderedPrims)
 	} else {
-		nodes = bvh.RecursiveBuild(primitiveInfo, &totalNodes, &orderedPrims)
+		root = bvh.RecursiveBuild(primitiveInfo, 0, int64(len(primitives)), &totalNodes, &orderedPrims)
 	}
-	fmt.Println(nodes)
 
 	bvh.primitives = orderedPrims
 
-	//offset := bvh.flattenBVHTree(nodes)
+	// compute representation of depth-first traversal of BVH tree
+
+	bvh.nodes = make([]LinearBVHNode, totalNodes)
+	var offset uint64
+	bvh.flattenBVHTree(root, &offset)
 
 	return bvh
 }
 
 type BucketInfo struct {
 	count  int
-	bounds *pbrt.Bounds3
+	bounds pbrt.Bounds3
 }
 
-func (b *BVHAccel) RecursiveBuild(primInfo []*BVHPrimitiveInfo, totalNodes *int64, orderedPrims *[]pbrt.Primitive) []*BVHBuildNode {
-	nodes := make([]*BVHBuildNode, 1)
+func (b *BVH) RecursiveBuild(primitiveInfo []*BVHPrimitiveInfo, start, end int64, totalNodes *int64, orderedPrims *[]pbrt.Primitive) *BVHBuildNode {
+	node := &BVHBuildNode{}
 	*totalNodes++
 
 	// compute bounds of all primitives in BVH node
 	var bounds pbrt.Bounds3
-	for _, pi := range primInfo {
-		bounds.Union(pi.bounds)
+	for i := start; i < end; i++ {
+		bounds.Union(primitiveInfo[i].bounds)
 	}
 
-	nPrimitives := int64(len(primInfo))
-
+	nPrimitives := end - start
 	if nPrimitives == 1 {
 		// create leaf BVHBuildNode
 		firstPrimOffset := int64(len(*orderedPrims))
-		for _, pi := range primInfo {
-			*orderedPrims = append(*orderedPrims, b.primitives[pi.primitiveNumber])
+		for i := start; i < end; i++ {
+			primitiveNumber := primitiveInfo[i].primitiveNumber
+			*orderedPrims = append(*orderedPrims, b.primitives[primitiveNumber])
 		}
-		nodes[0].InitLeaf(firstPrimOffset, nPrimitives, bounds)
-		return nodes
+		node.InitLeaf(firstPrimOffset, nPrimitives, bounds)
+		return node
 	}
 
 	// compute bound of Primitive centroids, choose split dimension dim
 	var centroidBounds pbrt.Bounds3
-	for _, pi := range primInfo {
-		centroidBounds.UnionPoint(pi.centroid)
+	for i := start; i < end; i++ {
+		centroidBounds.UnionPoint(primitiveInfo[i].centroid)
 	}
 	dim := centroidBounds.MaximumExtent()
 
 	// partition primitives into two sets and build children
-	mid := nPrimitives / 2
+	mid := (start + end) / 2
 	if centroidBounds.Max.Index(dim) == centroidBounds.Min.Index(dim) {
 		// create leaf BVHBuildNode
 		firstPrimOffset := int64(len(*orderedPrims))
-		for _, pi := range primInfo {
-			*orderedPrims = append(*orderedPrims, b.primitives[pi.primitiveNumber])
+		for i := start; i < end; i++ {
+			*orderedPrims = append(*orderedPrims, b.primitives[primitiveInfo[i].primitiveNumber])
 		}
-		nodes[0].InitLeaf(firstPrimOffset, nPrimitives, bounds)
-		return nodes
+		node.InitLeaf(firstPrimOffset, nPrimitives, bounds)
+		return node
 	}
 
 	// partition primitives based on splitMethod
@@ -334,8 +316,8 @@ func (b *BVHAccel) RecursiveBuild(primInfo []*BVHPrimitiveInfo, totalNodes *int6
 		// partition primitives through node's midpoint
 		pmid := (centroidBounds.Min.Index(dim) + centroidBounds.Min.Index(dim)) / 2
 
-		mid := PartitionPrimitiveInfo(primInfo, func(pi *BVHPrimitiveInfo) bool {
-			return pi.centroid.Index(dim) < pmid
+		mid := PartitionPrimitiveInfoAt(primitiveInfo, start, end-1, end-1, func(a, b *BVHPrimitiveInfo) bool {
+			return a.centroid.Index(dim) < pmid
 		})
 		// For lots of prims with large overlapping bounding boxes, this
 		// may fail to partition; in that case don't break and fall
@@ -343,16 +325,17 @@ func (b *BVHAccel) RecursiveBuild(primInfo []*BVHPrimitiveInfo, totalNodes *int6
 		if mid != 0 && mid != nPrimitives {
 			break
 		}
+
+		fallthrough
 	case SplitEqualCounts:
-		PartitionPrimitiveInfoAt(primInfo, mid, func(a, b *BVHPrimitiveInfo) bool {
+		PartitionPrimitiveInfoAt(primitiveInfo, start, end-1, mid, func(a, b *BVHPrimitiveInfo) bool {
 			return a.centroid.Index(dim) < b.centroid.Index(dim)
 		})
 		break
 	case SplitSAH:
-	default:
 		// partition primitives using approximate SAH
 		if nPrimitives <= 2 {
-			PartitionPrimitiveInfoAt(primInfo, mid, func(a, b *BVHPrimitiveInfo) bool {
+			PartitionPrimitiveInfoAt(primitiveInfo, start, end-1, mid, func(a, b *BVHPrimitiveInfo) bool {
 				return a.centroid.Index(dim) < b.centroid.Index(dim)
 			})
 			break
@@ -360,16 +343,15 @@ func (b *BVHAccel) RecursiveBuild(primInfo []*BVHPrimitiveInfo, totalNodes *int6
 
 		// allocate bucketinfo for SAH partition buckets
 		nBuckets := 12
-		buckets := make([]*BucketInfo, nBuckets)
-
-		// initialize bucketInfo for SAH parititon buckets
-		for _, pi := range primInfo {
-			b := nBuckets * int(centroidBounds.Offset(pi.centroid).Index(dim))
+		buckets := make([]BucketInfo, nBuckets)
+		// initialize bucketInfo for SAH partition buckets
+		for i := start; i < end; i++ {
+			b := nBuckets * int(centroidBounds.Offset(primitiveInfo[i].centroid).Index(dim))
 			if b == nBuckets {
 				b = nBuckets - 1
 			}
 			buckets[b].count++
-			buckets[b].bounds.Union(pi.bounds)
+			buckets[b].bounds.Union(primitiveInfo[i].bounds)
 		}
 
 		// compute costs for splitting after each bucket
@@ -378,11 +360,11 @@ func (b *BVHAccel) RecursiveBuild(primInfo []*BVHPrimitiveInfo, totalNodes *int6
 			var b0, b1 pbrt.Bounds3
 			var count0, count1 int
 			for j := 0; j <= i; j++ {
-				b0.Union(buckets[j].bounds)
+				b0.Union(&buckets[j].bounds)
 				count0 += buckets[j].count
 			}
 			for j := i + 1; j < nBuckets; j++ {
-				b1.Union(buckets[j].bounds)
+				b1.Union(&buckets[j].bounds)
 				count1 += buckets[j].count
 			}
 			cost[i] = 1.0 + (float64(count0)*b0.SurfaceArea()+float64(count1)*b1.SurfaceArea())/bounds.SurfaceArea()
@@ -391,7 +373,7 @@ func (b *BVHAccel) RecursiveBuild(primInfo []*BVHPrimitiveInfo, totalNodes *int6
 		// find bucket to split at that minimizes SAH metric
 		minCost := cost[0]
 		minCostSplitBucket := 0
-		for i := 1; i < nBuckets; i++ {
+		for i := 1; i < nBuckets-1; i++ {
 			if cost[i] < minCost {
 				minCost = cost[i]
 				minCostSplitBucket = i
@@ -400,38 +382,36 @@ func (b *BVHAccel) RecursiveBuild(primInfo []*BVHPrimitiveInfo, totalNodes *int6
 
 		// either create leaf or split primitives at selected SAH bucket
 		leafCost := float64(nPrimitives)
-		if nPrimitives > b.maxPrimsInNode || minCost < leafCost {
-			mid = PartitionPrimitiveInfo(primInfo, func(pi *BVHPrimitiveInfo) bool {
-				b := nBuckets * int(centroidBounds.Offset(pi.centroid).Index(dim))
-				if b == nBuckets {
-					b = nBuckets - 1
+		if nPrimitives > int64(b.maxPrimsInNode) || minCost < leafCost {
+			mid = PartitionPrimitiveInfoAt(primitiveInfo, start, end-1, end-1, func(a, b *BVHPrimitiveInfo) bool {
+				c := nBuckets * int(centroidBounds.Offset(a.centroid).Index(dim))
+				if c == nBuckets {
+					c = nBuckets - 1
 				}
-				return b <= minCostSplitBucket
+				return c <= minCostSplitBucket
 			})
-
 		} else {
 			// create leaf BVHBuildNode
 			firstPrimOffset := int64(len(*orderedPrims))
-			for _, pi := range primInfo {
-				*orderedPrims = append(*orderedPrims, b.primitives[pi.primitiveNumber])
+			for i := start; i < end; i++ {
+				*orderedPrims = append(*orderedPrims, b.primitives[primitiveInfo[i].primitiveNumber])
 			}
-			nodes[0].InitLeaf(firstPrimOffset, nPrimitives, bounds)
-			return nodes
+			node.InitLeaf(firstPrimOffset, nPrimitives, bounds)
+			return node
 		}
-		break
 	}
 
-	nodes[0].InitInterior(dim,
-		b.RecursiveBuild(primInfo[:mid], totalNodes, orderedPrims),
-		b.RecursiveBuild(primInfo[mid:], totalNodes, orderedPrims),
+	node.InitInterior(uint8(dim),
+		b.RecursiveBuild(primitiveInfo, start, mid, totalNodes, orderedPrims),
+		b.RecursiveBuild(primitiveInfo, mid, end, totalNodes, orderedPrims),
 	)
 
-	return nodes
+	return node
 
 }
 
-func (b *BVHAccel) HLBVHBuild(primInfo []*BVHPrimitiveInfo, totalNodes *int64, orderedPrims *[]pbrt.Primitive) []*BVHBuildNode {
-	var bounds *pbrt.Bounds3
+func (b *BVH) HLBVHBuild(primInfo []*BVHPrimitiveInfo, totalNodes *int64, orderedPrims *[]pbrt.Primitive) *BVHBuildNode {
+	var bounds pbrt.Bounds3
 	for _, pi := range primInfo {
 		bounds.UnionPoint(pi.centroid)
 	}
@@ -453,63 +433,79 @@ func (b *BVHAccel) HLBVHBuild(primInfo []*BVHPrimitiveInfo, totalNodes *int64, o
 
 	// find intervals of primitives for each treelet
 	var treeletsToBuild []*LBVHTreelet
-	start := int64(0)
-	for end := int64(0); end <= int64(len(mortonPrims)); end++ {
-
+	for start, end := 0, 0; end <= len(mortonPrims); end++ {
 		var mask uint64 = 0x3ffc0000
 
-		if end == int64(len(mortonPrims)) || ((mortonPrims[start].mortonCode & mask) != (mortonPrims[end].mortonCode & mask)) {
+		if end == len(mortonPrims) || ((mortonPrims[start].mortonCode & mask) != (mortonPrims[end].mortonCode & mask)) {
 			nPrimitives := end - start
 			maxBVHNodes := 2 * nPrimitives
-			nodes := make([]*BVHBuildNode, maxBVHNodes)
-			treeletsToBuild = append(treeletsToBuild, &LBVHTreelet{start, nPrimitives, nodes})
+			treeletsToBuild = append(treeletsToBuild, &LBVHTreelet{
+				startIndex:  int64(start),
+				nPrimitives: int64(nPrimitives),
+				buildNodes:  make([]BVHBuildNode, maxBVHNodes),
+			})
 			start = end
 		}
 	}
 
 	var orderedPrimsOffset int64
+	*orderedPrims = make([]pbrt.Primitive, len(b.primitives))
 
 	// Create LBVHs for treelets in parallel
-	createLBVHTreelet := func(i int) {
-		// generate ith LBVH treelet
-		var nodesCreated int64
-		var firstBitIndex int64 = 29 - 12
-		tr := treeletsToBuild[i]
-		tr.buildNodes = b.emitLBVH(
-			tr.buildNodes,
-			primInfo,
-			mortonPrims[tr.startIndex:tr.startIndex+tr.nPrimitives],
-			tr.nPrimitives,
-			&nodesCreated,
-			orderedPrims,
-			&orderedPrimsOffset,
-			firstBitIndex,
-		)
-		atomic.AddInt64(totalNodes, nodesCreated)
-	}
-	// TODO: run in parallel
+	g, _ := errgroup.WithContext(context.Background())
 	for i := 0; i < len(treeletsToBuild); i++ {
-		createLBVHTreelet(i)
+		g.Go(func(i int) func() error {
+			return func() error {
+				// generate ith LBVH treelet
+				var nodesCreated int64
+				var firstBitIndex int64 = 29 - 12
+				tr := treeletsToBuild[i]
+				tr.finishedNode = b.emitLBVH(
+					tr.buildNodes,
+					primInfo,
+					mortonPrims[tr.startIndex:tr.startIndex+tr.nPrimitives],
+					tr.nPrimitives,
+					&nodesCreated,
+					orderedPrims,
+					&orderedPrimsOffset,
+					firstBitIndex,
+				)
+
+				atomic.AddInt64(totalNodes, nodesCreated)
+				return nil
+			}
+		}(i))
+	}
+
+	err := g.Wait()
+	if err != nil {
+		// TODO
 	}
 
 	// create and return SAH BVH from LBVH treelets
-	finishedTreelets := make([]*BVHBuildNode, len(treeletsToBuild))
+	finishedTreelets := make([]BVHBuildNode, len(treeletsToBuild))
 	for _, treelet := range treeletsToBuild {
 		finishedTreelets = append(finishedTreelets, treelet.buildNodes...)
 	}
 
-	return b.buildUpperSAH(finishedTreelets, totalNodes)
+	return b.buildUpperSAH(finishedTreelets, 0, int64(len(finishedTreelets)), totalNodes)
 }
 
-func (b *BVHAccel) emitLBVH(
-	buildNodes []*BVHBuildNode, primInfo []*BVHPrimitiveInfo, mortonPrims []*MortonPrimitive,
-	nPrimitives int64, totalNodes *int64, orderedPrims *[]pbrt.Primitive, orderedPrimsOffset *int64, bitIndex int64) []*BVHBuildNode {
+func (b *BVH) emitLBVH(
+	buildNodes []BVHBuildNode,
+	primInfo []*BVHPrimitiveInfo,
+	mortonPrims []*MortonPrimitive,
+	nPrimitives int64,
+	totalNodes *int64,
+	orderedPrims *[]pbrt.Primitive,
+	orderedPrimsOffset *int64,
+	bitIndex int64) *BVHBuildNode {
 
-	if bitIndex == -1 || nPrimitives < b.maxPrimsInNode {
+	if bitIndex == -1 || nPrimitives < int64(b.maxPrimsInNode) {
 		// create and return leaf node of LBVH treelet
 		*totalNodes++
-		node := buildNodes[1]
-		var bounds pbrt.Bounds3
+		node := buildNodes[0]
+		bounds := *primInfo[0].bounds
 		firstPrimOffset := atomic.AddInt64(orderedPrimsOffset, nPrimitives)
 		for i := int64(0); i < nPrimitives; i++ {
 			primitiveIndex := mortonPrims[i].primitiveIndex
@@ -517,7 +513,7 @@ func (b *BVHAccel) emitLBVH(
 			bounds.Union(primInfo[primitiveIndex].bounds)
 		}
 		node.InitLeaf(firstPrimOffset, nPrimitives, bounds)
-		return buildNodes[1:] // TODO: double check this is right
+		return &node
 	}
 
 	var mask uint64 = 1 << uint64(bitIndex)
@@ -539,51 +535,53 @@ func (b *BVHAccel) emitLBVH(
 	splitOffset := searchEnd
 
 	// create and return interior LBVH node
+	node := buildNodes[0]
 	*totalNodes++
-	lbvh := [2][]*BVHBuildNode{
+	lbvh := [2]*BVHBuildNode{
 		b.emitLBVH(buildNodes[1:], primInfo, mortonPrims[:splitOffset], splitOffset, totalNodes, orderedPrims, orderedPrimsOffset, bitIndex-1),
 		b.emitLBVH(buildNodes[1:], primInfo, mortonPrims[splitOffset:], nPrimitives-splitOffset, totalNodes, orderedPrims, orderedPrimsOffset, bitIndex-1),
 	}
-	axis := bitIndex % 3
-	buildNodes[0].InitInterior(int(axis), lbvh[0], lbvh[1])
+	axis := uint8(bitIndex % 3)
+	node.InitInterior(axis, lbvh[0], lbvh[1])
 
-	return buildNodes
+	return &node
 }
 
-func (b *BVHAccel) buildUpperSAH(treeletRoots []*BVHBuildNode, totalNodes *int64) []*BVHBuildNode {
-	nNodes := len(treeletRoots)
+func (b *BVH) buildUpperSAH(treeletRoots []BVHBuildNode, start, end int64, totalNodes *int64) *BVHBuildNode {
+	nNodes := end - start
 	if nNodes == 1 {
-		return treeletRoots
+		return &treeletRoots[start]
 	}
 	*totalNodes++
+	node := &BVHBuildNode{}
 
 	// compute bounds of all nodes under this HLBVH node
-	var bounds pbrt.Bounds3
-	for _, tr := range treeletRoots {
-		bounds.Union(tr.bounds)
+	bounds := treeletRoots[start].bounds
+	for i := start; i < end; i++ {
+		bounds.Union(&treeletRoots[i].bounds)
 	}
 
 	// compute bound of HLBVH node centroids, choose split dimension
 	var centroidBounds pbrt.Bounds3
-	for _, tr := range treeletRoots {
-		centroidBounds.UnionPoint(tr.bounds.Min.Add(tr.bounds.Max).MulScalar(0.5))
+	for i := start; i < end; i++ {
+		centroidBounds.UnionPoint(treeletRoots[i].bounds.Min.Add(treeletRoots[i].bounds.Max).MulScalar(0.5))
 	}
 	dim := centroidBounds.MaximumExtent()
 
 	// allocate BucketInfo for SAH partition buckets
 	nBuckets := 12
-	buckets := make([]*BucketInfo, nBuckets)
+	buckets := make([]BucketInfo, nBuckets)
 
 	// initialize BucketInfo for HLBVH SAH partition buckets
-	for _, tr := range treeletRoots {
-		centroid := (tr.bounds.Min.Index(dim) + tr.bounds.Max.Index(dim)) * 0.5
+	for i := start; i < end; i++ {
+		centroid := (treeletRoots[i].bounds.Min.Index(dim) + treeletRoots[i].bounds.Max.Index(dim)) * 0.5
 		b := nBuckets * int((centroid-centroidBounds.Min.Index(dim))/centroidBounds.Max.Index(dim)-centroidBounds.Min.Index(dim))
 		if b == nBuckets {
 			b = nBuckets - 1
 		}
 
 		buckets[b].count++
-		buckets[b].bounds.Union(tr.bounds)
+		buckets[b].bounds.Union(&treeletRoots[i].bounds)
 	}
 
 	// compute costs for splitting after each bucket
@@ -592,11 +590,11 @@ func (b *BVHAccel) buildUpperSAH(treeletRoots []*BVHBuildNode, totalNodes *int64
 		var b0, b1 pbrt.Bounds3
 		var count0, count1 int
 		for j := 0; j <= i; j++ {
-			b0.Union(buckets[j].bounds)
+			b0.Union(&buckets[j].bounds)
 			count0 += buckets[j].count
 		}
 		for j := i + 1; j < nBuckets; j++ {
-			b1.Union(buckets[j].bounds)
+			b1.Union(&buckets[j].bounds)
 			count1 += buckets[j].count
 		}
 		cost[i] = 0.125 + (float64(count0)*b0.SurfaceArea()+float64(count1)*b1.SurfaceArea())/bounds.SurfaceArea()
@@ -613,7 +611,7 @@ func (b *BVHAccel) buildUpperSAH(treeletRoots []*BVHBuildNode, totalNodes *int64
 	}
 
 	// split nodes and create interior HLBVH SAH node
-	mid := PartitionBuildNode(treeletRoots, func(node *BVHBuildNode) bool {
+	mid := PartitionBuildNode(treeletRoots[start:end], func(node *BVHBuildNode) bool {
 		centroid := (node.bounds.Min.Index(dim) + node.bounds.Max.Index(dim)) * 0.5
 		b := nBuckets * int((centroid-centroidBounds.Min.Index(dim))/(centroidBounds.Max.Index(dim)-centroidBounds.Min.Index(dim)))
 		if b == nBuckets {
@@ -623,35 +621,159 @@ func (b *BVHAccel) buildUpperSAH(treeletRoots []*BVHBuildNode, totalNodes *int64
 		return b <= minCostSplitBucket
 	})
 
-	treeletRoots[0].InitInterior(
-		dim,
-		b.buildUpperSAH(treeletRoots[:mid], totalNodes),
-		b.buildUpperSAH(treeletRoots[mid:], totalNodes),
+	node.InitInterior(
+		uint8(dim),
+		b.buildUpperSAH(treeletRoots, start, mid, totalNodes),
+		b.buildUpperSAH(treeletRoots, mid, end, totalNodes),
 	)
-	return treeletRoots
+	return node
 }
 
-// TODO:
-func (b *BVHAccel) WorldBound() *pbrt.Bounds3 {
-	return nil
-}
-func (b *BVHAccel) Intersect(r *pbrt.Ray, si *pbrt.SurfaceInteraction) bool {
-	return false
-}
-func (b *BVHAccel) IntersectP(r *pbrt.Ray) bool {
-	return false
+func (b *BVH) flattenBVHTree(node *BVHBuildNode, offset *uint64) uint64 {
+	linearNode := &b.nodes[*offset]
+	linearNode.bounds = node.bounds
+
+	myOffset := *offset
+	*offset++
+
+	if node.nPrimitives > 0 {
+		linearNode.primitiveOffset = uint64(node.firstPrimOffset)
+		linearNode.nPrimitives = uint64(node.nPrimitives)
+	} else {
+		// create interior flattened BVH node
+		linearNode.axis = node.splitAxis
+		linearNode.nPrimitives = 0
+		b.flattenBVHTree(node.children[0], offset)
+		linearNode.secondChildOffset = b.flattenBVHTree(node.children[1], offset)
+	}
+
+	return myOffset
 }
 
-func (b *BVHAccel) GetAreaLight() pbrt.AreaLighter {
+func (b *BVH) WorldBound() *pbrt.Bounds3 {
+	if len(b.nodes) == 0 {
+		return &pbrt.Bounds3{}
+	}
+	return &b.nodes[0].bounds
+}
+func (b *BVH) Intersect(ray *pbrt.Ray, si *pbrt.SurfaceInteraction) bool {
+	if len(b.nodes) == 0 {
+		return false
+	}
+
+	hit := false
+	invDir := &pbrt.Vector3f{1 / ray.Direction.X, 1 / ray.Direction.Y, 1 / ray.Direction.Z}
+	directionIsNegative := invDir.IsNegative()
+
+	// Follow ray through BVH nodes to find primitive intersections
+	var toVisitOffset, currentNodeIndex uint64
+	nodesToVisit := [64]uint64{}
+
+	for {
+		node := b.nodes[currentNodeIndex]
+		// check ray against BVH node
+		if node.bounds.IntersectP(ray, invDir, directionIsNegative) {
+			if node.nPrimitives > 0 {
+				// intersect ray with primitives in leaf BVH node
+				for i := uint64(0); i < node.nPrimitives; i++ {
+					if b.primitives[node.primitiveOffset+i].Intersect(ray, si) {
+						hit = true
+					}
+				}
+				if toVisitOffset == 0 {
+					break
+				}
+				toVisitOffset--
+				currentNodeIndex = nodesToVisit[toVisitOffset]
+			} else {
+				// put far BVH node on nodesToVisit stack, advance to near node
+				if directionIsNegative[node.axis] == 1 {
+					nodesToVisit[toVisitOffset] = currentNodeIndex + 1
+					currentNodeIndex = node.secondChildOffset
+					toVisitOffset++
+				} else {
+					nodesToVisit[toVisitOffset] = node.secondChildOffset
+					currentNodeIndex = currentNodeIndex + 1
+					toVisitOffset++
+				}
+			}
+
+		} else {
+			if toVisitOffset == 0 {
+				break
+			}
+
+			toVisitOffset--
+			currentNodeIndex = nodesToVisit[toVisitOffset]
+		}
+	}
+
+	return hit
+}
+func (b *BVH) IntersectP(ray *pbrt.Ray) bool {
+	if len(b.nodes) == 0 {
+		return false
+	}
+
+	invDir := &pbrt.Vector3f{1 / ray.Direction.X, 1 / ray.Direction.Y, 1 / ray.Direction.Z}
+	directionIsNegative := invDir.IsNegative()
+
+	// Follow ray through BVH nodes to find primitive intersections
+	var toVisitOffset, currentNodeIndex uint64
+	nodesToVisit := [64]uint64{}
+
+	for {
+		node := b.nodes[currentNodeIndex]
+		// check ray against BVH node
+		if node.bounds.IntersectP(ray, invDir, directionIsNegative) {
+			if node.nPrimitives > 0 {
+				// intersect ray with primitives in leaf BVH node
+				for i := uint64(0); i < node.nPrimitives; i++ {
+					if b.primitives[node.primitiveOffset+i].IntersectP(ray) {
+						return true
+					}
+				}
+				if toVisitOffset == 0 {
+					return false
+				}
+				toVisitOffset--
+				currentNodeIndex = nodesToVisit[toVisitOffset]
+			} else {
+				// put far BVH node on nodesToVisit stack, advance to near node
+				if directionIsNegative[node.axis] == 1 {
+					nodesToVisit[toVisitOffset] = currentNodeIndex + 1
+					currentNodeIndex = node.secondChildOffset
+					toVisitOffset++
+				} else {
+					nodesToVisit[toVisitOffset] = node.secondChildOffset
+					currentNodeIndex++
+					toVisitOffset++
+				}
+			}
+
+		} else {
+			if toVisitOffset == 0 {
+				return false
+			}
+
+			toVisitOffset--
+			currentNodeIndex = nodesToVisit[toVisitOffset]
+			continue
+		}
+
+	}
+}
+
+func (b *BVH) GetAreaLight() pbrt.AreaLighter {
 	log.Panic("Aggregate.GetAreaLight called; should have gone to Geometric Primitiver")
 	return nil
 }
 
-func (b *BVHAccel) GetMaterial() pbrt.Material {
+func (b *BVH) GetMaterial() pbrt.Material {
 	log.Panic("Aggregate.GetMaterial called; should have gone to GeometricPrimitive")
 	return nil
 }
 
-func (b *BVHAccel) ComputeScatteringFunctions(si *pbrt.SurfaceInteraction, mode pbrt.TransportMode, allowMultipleLobes bool) {
+func (b *BVH) ComputeScatteringFunctions(si *pbrt.SurfaceInteraction, mode pbrt.TransportMode, allowMultipleLobes bool) {
 	log.Panic("aggregate.ComputeScatteringFunctions called; should have gone to GeometricPrimitive")
 }

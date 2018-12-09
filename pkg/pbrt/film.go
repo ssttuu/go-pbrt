@@ -1,7 +1,6 @@
 package pbrt
 
 import (
-	"github.com/stupschwartz/go-pbrt/pkg/math"
 	"image"
 	"image/color"
 	"image/png"
@@ -9,6 +8,8 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
+
+	"github.com/stupschwartz/go-pbrt/pkg/math"
 )
 
 type FilmTilePixel struct {
@@ -199,7 +200,7 @@ func NewFilmTile(pixelBounds *Bounds2i, filterRadius *Vector2f, filterTable []fl
 	return &FilmTile{
 		pixelBounds:        pixelBounds,
 		filterRadius:       filterRadius,
-		invFilterRadius:    &Vector2f{1.0 / filterRadius.X,1.0 / filterRadius.Y},
+		invFilterRadius:    &Vector2f{1.0 / filterRadius.X, 1.0 / filterRadius.Y},
 		filterTable:        filterTable,
 		filterTableSize:    filterTableSize,
 		maxSampleLuminance: maxSampleLuminance,
@@ -222,19 +223,19 @@ func (f *FilmTile) AddSample(pFilm *Point2f, L Spectrum, sampleWeight float64) {
 	// loop over filter support and add sample to pixel arrays
 
 	// precompute x and y filter table offsets
-	ifx := make([]int, p1.X - p0.X)
+	ifx := make([]int, p1.X-p0.X)
 	for x := p0.X; x < p1.X; x++ {
 		fx := math.Abs((float64(x) - pFilmDiscrete.X) * f.invFilterRadius.X * float64(f.filterTableSize))
-		ifx[x - p0.X] = int(math.Min(math.Floor(fx), float64(f.filterTableSize) - 1))
+		ifx[x-p0.X] = int(math.Min(math.Floor(fx), float64(f.filterTableSize)-1))
 	}
-	ify := make([]int, p1.Y - p0.Y)
+	ify := make([]int, p1.Y-p0.Y)
 	for y := p0.Y; y < p1.Y; y++ {
 		fy := math.Abs((float64(y) - pFilmDiscrete.Y) * f.invFilterRadius.Y * float64(f.filterTableSize))
-		ify[y - p0.Y] = int(math.Min(math.Floor(fy), float64(f.filterTableSize) - 1))
+		ify[y-p0.Y] = int(math.Min(math.Floor(fy), float64(f.filterTableSize)-1))
 	}
 	for y := p0.Y; y < p1.Y; y++ {
 		for x := p0.X; x < p1.X; x++ {
-			offset := ify[y - p0.Y] * f.filterTableSize + ifx[x - p0.X]
+			offset := ify[y-p0.Y]*f.filterTableSize + ifx[x-p0.X]
 			filterWeight := f.filterTable[offset]
 
 			// update pixel values with filtered sample contribution
