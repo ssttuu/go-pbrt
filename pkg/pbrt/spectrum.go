@@ -2,6 +2,7 @@ package pbrt
 
 import (
 	"fmt"
+
 	"github.com/stupschwartz/go-pbrt/pkg/math"
 )
 

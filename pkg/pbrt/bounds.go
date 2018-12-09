@@ -104,13 +104,13 @@ type Bounds3 struct {
 
 func (b *Bounds3) Corner(corner int) *Point3f {
 	return &Point3f{
-		X: b.GetIndex(corner & 1).X,
-		Y: b.GetIndex((corner & 2) / 2).Y,
-		Z: b.GetIndex((corner & 4) / 4).Z,
+		X: b.Index(corner & 1).X,
+		Y: b.Index((corner & 2) / 2).Y,
+		Z: b.Index((corner & 4) / 4).Z,
 	}
 }
 
-func (b *Bounds3) GetIndex(i int) *Point3f {
+func (b *Bounds3) Index(i int) *Point3f {
 	if i == 0 {
 		return b.Min
 	}
@@ -128,10 +128,51 @@ func (b *Bounds3) SurfaceArea() float64 {
 
 func (b *Bounds3) MaximumExtent() int {
 	d := b.Diagonal()
-	if d.X > d.Y {
+	if d.X > d.Y && d.X > d.Z {
 		return 0
+	} else if d.Y > d.Z {
+		return 1
+	} else {
+		return 2
 	}
-	return 1
+}
+
+func (b *Bounds3) IntersectP(r *Ray, invDir *Vector3f, directionIsNegative [3]int) bool {
+	// check for ray intersection against x and y slabs
+	tMin := (b.Index(directionIsNegative[0]).X - r.Origin.X) * invDir.X
+	tMax := (b.Index(1-directionIsNegative[0]).X - r.Origin.X) * invDir.X
+	tyMin := (b.Index(directionIsNegative[1]).Y - r.Origin.Y) * invDir.Y
+	tyMax := (b.Index(1-directionIsNegative[1]).Y - r.Origin.Y) * invDir.Y
+
+	// update tMax and tyMax to ensure robust bounds intersection
+	tMax *= 1 + 2*math.Gamma(3)
+	tyMax *= 1 + 2*math.Gamma(3)
+	if tMin > tyMax || tyMin > tMax {
+		return false
+	}
+	if tyMin > tMin {
+		tMin = tyMin
+	}
+	if tyMax < tMax {
+		tMax = tyMax
+	}
+
+	// check for ray intersection against z slab
+	tzMin := (b.Index(directionIsNegative[2]).Z - r.Origin.Z) * invDir.Z
+	tzMax := (b.Index(1-directionIsNegative[2]).Z - r.Origin.Z) * invDir.Z
+
+	// update tzMax to ensure robust bounds intersection
+	tzMax *= 1 + 2*math.Gamma(3)
+	if tMin > tzMax || tzMin > tMax {
+		return false
+	}
+	if tzMin > tMin {
+		tMin = tzMin
+	}
+	if tzMax < tMax {
+		tMax = tzMax
+	}
+	return tMin < r.TMax && tMax > 0
 }
 
 func (b *Bounds3) Lerp(other *Point3f) *Point3f {
@@ -150,17 +191,39 @@ func (b *Bounds3) Offset(other *Point3f) *Vector3f {
 	if b.Max.Y > b.Min.Y {
 		o.Y /= b.Max.Y - b.Min.Y
 	}
+	if b.Max.Z > b.Min.Z {
+		o.Z /= b.Max.Z - b.Min.Z
+	}
 	return o
 }
 
 func (b *Bounds3) UnionPoint(p *Point3f) *Bounds3 {
+	if b.Min == nil {
+		b.Min = p
+	}
+	if b.Max == nil {
+		b.Max = p
+	}
 	b.Min = MinPoint(b.Min, p)
 	b.Max = MaxPoint(b.Max, p)
 	return b
 }
 
 func (b *Bounds3) Union(b2 *Bounds3) *Bounds3 {
+	if b.Min == nil {
+		b.Min = b2.Min
+	}
+
+	if b.Max == nil {
+		b.Max = b2.Max
+	}
+
+	if b2.Min == nil || b2.Max == nil {
+		return b
+	}
+
 	b.Min = MinPoint(b.Min, b2.Min)
-	b.Max = MinPoint(b.Max, b2.Max)
+	b.Max = MaxPoint(b.Max, b2.Max)
+
 	return b
 }

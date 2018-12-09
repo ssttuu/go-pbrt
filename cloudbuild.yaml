@@ -8,10 +8,13 @@ steps:
       - --location=global
       - --keyring=pbrt
       - --key=pbrt
+
   - name: 'golang:1.11'
     args: ['go', 'test', '-v', './cmd/...', './pkg/...', ]
+
   - name: 'golang:1.11'
     args: ['bash', '-c', 'go test -bench=. -benchmem ./cmd/... ./pkg/... > performance_results.out']
+
   - name: 'gcr.io/i-m-a-g-e-s/go-bench-report:v0.0.3'
     env:
       - GOOGLE_APPLICATION_CREDENTIALS=/workspace/cicd/service-account.json

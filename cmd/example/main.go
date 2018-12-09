@@ -76,7 +76,7 @@ func main() {
 	xformPrim := pbrt.NewTransformedPrimitive(geoPrim, pbrt.NewAnimatedTransform(xformLocal, xformLocal, 0, 1))
 	primitives = append(primitives, xformPrim)
 
-	agg := accelerator.NewSimpleAggregate(primitives)
+	agg := accelerator.NewBVH(primitives, 2, accelerator.SplitSAH)
 
 	lights := []pbrt.Light{
 		pbrt.NewPointLight(

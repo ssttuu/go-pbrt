@@ -240,6 +240,20 @@ func (xyz *XYZGenericType) DivScalar(other GenericType) *XYZGenericType {
 	}
 }
 
+func (xyz *XYZGenericType) IsNegative() [3]int {
+	out := [3]int{}
+	if xyz.X < 0 {
+		out[0] = 1
+	}
+	if xyz.Y < 0 {
+		out[1] = 1
+	}
+	if xyz.Z < 0 {
+		out[2] = 1
+	}
+	return out
+}
+
 func (xyz *XYZGenericType) Abs() *XYZGenericType {
 	return &XYZGenericType{
 		GenericType(math.Abs(float64(xyz.X))),

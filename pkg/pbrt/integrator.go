@@ -263,8 +263,6 @@ func renderWorker(ctx context.Context, s Integrator, scene Scene, tiles <-chan R
 
 					}
 
-
-
 					//px := camera.GetFilm().getPixel(pixelPos)
 					//px.value = [3]float64{
 					//	L.Index(0),
