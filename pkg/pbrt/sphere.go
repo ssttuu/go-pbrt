@@ -7,7 +7,6 @@ import (
 
 type Sphere struct {
 	name string
-
 	objectToWorld, worldToObject *Transform
 	reverseOrientation           bool
 	transformSwapsHandedness     bool

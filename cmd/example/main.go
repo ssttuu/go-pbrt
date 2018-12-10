@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/stupschwartz/go-pbrt/pkg/shapes"
 	"log"
 	"os"
 	"runtime/pprof"
@@ -76,18 +77,23 @@ func main() {
 	xformPrim := pbrt.NewTransformedPrimitive(geoPrim, pbrt.NewAnimatedTransform(xformLocal, xformLocal, 0, 1))
 	primitives = append(primitives, xformPrim)
 
+	diskXform := pbrt.Translate(new(pbrt.Vector3f)).Mul(pbrt.RotateX(90))
+	disk := shapes.NewDisk(diskXform, 0.01, 500, 0, 360)
+	diskPrim := pbrt.NewGeometricPrimitive(disk, pbrt.NewMatteMaterial(pbrt.NewConstantSpectrumTexture(pbrt.NewRGBSpectrum(1, 1, 1)), sigma, nil))
+	primitives = append(primitives, diskPrim)
+
 	agg := accelerator.NewBVH(primitives, 2, accelerator.SplitSAH)
 
 	lights := []pbrt.Light{
 		pbrt.NewPointLight(
-			pbrt.Translate(&pbrt.Vector3f{300, 0, 0}),
+			pbrt.Translate(&pbrt.Vector3f{300, 5, 0}),
 			nil,
 			pbrt.NewSpectrum(4000),
 		),
 		pbrt.NewPointLight(
-			pbrt.Translate(&pbrt.Vector3f{50, 0, 50}),
+			pbrt.Translate(&pbrt.Vector3f{50, 20, 50}),
 			nil,
-			pbrt.NewSpectrum(400),
+			pbrt.NewSpectrum(100),
 		),
 	}
 
