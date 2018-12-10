@@ -7,7 +7,6 @@ import (
 )
 
 type Shape interface {
-	GetName() string
 	ObjectBound() *Bounds3
 	WorldBound() *Bounds3
 	ReverseOrientation() bool

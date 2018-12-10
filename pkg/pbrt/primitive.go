@@ -71,7 +71,7 @@ func (p *GeometricPrimitive) GetMaterial() Material {
 
 func (p *GeometricPrimitive) ComputeScatteringFunctions(si *SurfaceInteraction, mode TransportMode, allowMultipleLobes bool) {
 	if p.material == nil {
-		log.Panicf("NO MATERIAL: %+v", p.Shape.GetName())
+		log.Panicf("NO MATERIAL: %+v", p.Shape)
 	}
 
 	p.material.ComputeScatteringFunctions(si, mode, allowMultipleLobes)
