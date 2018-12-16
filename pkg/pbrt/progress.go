@@ -15,7 +15,7 @@ type ProgressReporter interface {
 func NewProgress(steps int64) *StdoutProgress {
 	p := &StdoutProgress{
 		total: steps,
-		step: 0,
+		step:  0,
 		steps: make(chan int64, steps),
 	}
 	return p
@@ -23,7 +23,7 @@ func NewProgress(steps int64) *StdoutProgress {
 
 type StdoutProgress struct {
 	total int64
-	step int64
+	step  int64
 	steps chan int64
 
 	startTime, endTime time.Time
@@ -46,7 +46,7 @@ func (p *StdoutProgress) Start(ctx context.Context) {
 			case <-ctx.Done():
 				return
 			default:
-				fmt.Printf("\rProgress: %3.2f%%", float64(step)/float64(p.total) * 100)
+				fmt.Printf("\rProgress: %3.2f%%", float64(step)/float64(p.total)*100)
 				if step == p.total {
 					return
 				}

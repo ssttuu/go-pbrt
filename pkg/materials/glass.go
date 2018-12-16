@@ -5,7 +5,7 @@ import (
 )
 
 type Glass struct {
-	Kr, Kt                *pbrt.ConstantSpectrumTexture
+	Kr, Kt                 *pbrt.ConstantSpectrumTexture
 	uRoughness, vRoughness pbrt.FloatTexture
 	index                  pbrt.FloatTexture
 	bumpMap                pbrt.FloatTexture

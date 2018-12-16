@@ -4,18 +4,18 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/ssttuu/go-pbrt/pkg/integrator"
-	"github.com/ssttuu/go-pbrt/pkg/materials"
-	"github.com/ssttuu/go-pbrt/pkg/math"
-	"github.com/ssttuu/go-pbrt/pkg/shapes"
-	"github.com/ssttuu/go-pbrt/pkg/textures"
 	"log"
 	"os"
 	"runtime/pprof"
 	"time"
 
 	"github.com/ssttuu/go-pbrt/pkg/accelerator"
+	"github.com/ssttuu/go-pbrt/pkg/integrator"
+	"github.com/ssttuu/go-pbrt/pkg/materials"
+	"github.com/ssttuu/go-pbrt/pkg/math"
 	"github.com/ssttuu/go-pbrt/pkg/pbrt"
+	"github.com/ssttuu/go-pbrt/pkg/shapes"
+	"github.com/ssttuu/go-pbrt/pkg/textures"
 )
 
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to `file`")
@@ -57,7 +57,7 @@ func main() {
 				color = pbrt.NewRGBSpectrum(0, 0, 1)
 			}
 			radius := 2.0
-			y = math.Max(y, radius / 2)
+			y = math.Max(y, radius/2)
 
 			sphere := pbrt.NewSphereShape(
 				fmt.Sprintf("Sphere: %v, %v, %v - MatteMaterial", x, y, z),

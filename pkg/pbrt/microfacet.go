@@ -76,9 +76,9 @@ func (t *TrowbridgeReitz) SampleWH(wo *Vector3f, u *Point2f) *Vector3f {
 		phi := math.Pi2 * u.Y
 		if t.alphaX == t.alphaY {
 			tanTheta2 := t.alphaX * t.alphaX * u.X / (1.0 - u.X)
-			cosTheta = 1 / math.Sqrt(1 + tanTheta2)
+			cosTheta = 1 / math.Sqrt(1+tanTheta2)
 		} else {
-			phi := math.Atan(t.alphaY / t.alphaX * math.Tan(math.Pi2 * u.Y + 0.5 * math.Pi))
+			phi := math.Atan(t.alphaY / t.alphaX * math.Tan(math.Pi2*u.Y+0.5*math.Pi))
 			if u.Y > 0.5 {
 				phi += math.Pi
 			}
@@ -86,11 +86,11 @@ func (t *TrowbridgeReitz) SampleWH(wo *Vector3f, u *Point2f) *Vector3f {
 			cosPhi := math.Cos(phi)
 			alphaX2 := t.alphaX * t.alphaX
 			alphaY2 := t.alphaY * t.alphaY
-			alpha2 := 1 / (cosPhi * cosPhi / alphaX2 + sinPhi * sinPhi / alphaY2)
+			alpha2 := 1 / (cosPhi*cosPhi/alphaX2 + sinPhi*sinPhi/alphaY2)
 			tanTheta2 := alpha2 * u.X / (1 - u.X)
-			cosTheta = 1.0 / math.Sqrt(1 + tanTheta2)
+			cosTheta = 1.0 / math.Sqrt(1+tanTheta2)
 		}
-		sinTheta := math.Sqrt(math.Max(0, 1 - cosTheta * cosTheta))
+		sinTheta := math.Sqrt(math.Max(0, 1-cosTheta*cosTheta))
 		wh := SphericalDirection(sinTheta, cosTheta, phi)
 		if !SameHemisphere(wo, wh) {
 			wh = wh.MulScalar(-1)
@@ -155,9 +155,9 @@ func TrowbridgeReitzSample11(cosTheta, U1, U2 float64) (slopeX, slopeY float64) 
 		S = -1
 		U2 = 2.0 * (0.5 - U2)
 	}
-	z := (U2*(U2*(U2*0.27385-0.73369) + 0.46341)) /
+	z := (U2 * (U2*(U2*0.27385-0.73369) + 0.46341)) /
 		(U2*(U2*(U2*0.093073+0.309420)-1.000000) + 0.597999)
-	slopeY = S * z * math.Sqrt(1 + slopeX * slopeX)
+	slopeY = S * z * math.Sqrt(1+slopeX*slopeX)
 
 	return slopeX, slopeY
 }

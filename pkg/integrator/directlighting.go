@@ -2,8 +2,9 @@ package integrator
 
 import (
 	"context"
-	"github.com/ssttuu/go-pbrt/pkg/pbrt"
 	"log"
+
+	"github.com/ssttuu/go-pbrt/pkg/pbrt"
 )
 
 type LightStrategy uint8
