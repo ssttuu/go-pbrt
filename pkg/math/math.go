@@ -6,6 +6,7 @@ var Infinity = math.Inf(1)
 
 var (
 	Pi      = math.Pi
+	Pi2     = Pi * 2
 	InvPi   = 1.0 / Pi
 	Inv2Pi  = 1.0 / (Pi * 2)
 	Inv4Pi  = 1.0 / (Pi * 4)
@@ -104,6 +105,10 @@ func IsNaN(f float64) bool {
 
 func Lerp(t, v1, v2 float64) float64 {
 	return (1.0-t)*v1 + t*v2
+}
+
+func Log(x float64) float64 {
+	return math.Log(x)
 }
 
 func Max(x, y float64) float64 {

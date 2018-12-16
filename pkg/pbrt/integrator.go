@@ -364,11 +364,7 @@ func Render(ctx context.Context, s Integrator, scene Scene, tileSize int64) erro
 	return nil
 }
 
-func (s *SamplerIntegrator) Li(ctx context.Context, ray *RayDifferential, scene Scene, sampler Sampler, depth int) Spectrum {
-	return nil
-}
-
-func (s *SamplerIntegrator) SpecularReflect(ctx context.Context, ray *RayDifferential, si *SurfaceInteraction, scene Scene, sampler Sampler, depth int) Spectrum {
+func SamplerIntegratorSpecularReflect(s Integrator, ctx context.Context, ray *RayDifferential, si *SurfaceInteraction, scene Scene, sampler Sampler, depth int) Spectrum {
 	wo := si.wo
 	t := BxDFType(BSDFReflection | BSDFSpecular)
 	f, wi, pdf, t := si.BSDF.SampleF(wo, sampler.Get2D(), t)
@@ -399,7 +395,7 @@ func (s *SamplerIntegrator) SpecularReflect(ctx context.Context, ray *RayDiffere
 	return NewSpectrum(0)
 }
 
-func (s *SamplerIntegrator) SpecularTransmit(ctx context.Context, ray *RayDifferential, si *SurfaceInteraction, scene Scene, sampler Sampler, depth int) Spectrum {
+func SamplerIntegratorSpecularTransmit(s Integrator, ctx context.Context, ray *RayDifferential, si *SurfaceInteraction, scene Scene, sampler Sampler, depth int) Spectrum {
 	wo := si.wo
 	f, wi, pdf, _ := si.BSDF.SampleF(wo, sampler.Get2D(), BxDFType(BSDFTransmission|BSDFSpecular))
 
@@ -450,7 +446,9 @@ const (
 )
 
 type DirectLightingIntegrator struct {
-	*SamplerIntegrator
+	camera      Camera
+	sampler     Sampler
+	pixelBounds *Bounds2i
 
 	strategy      LightStrategy
 	maxDepth      int
@@ -459,10 +457,20 @@ type DirectLightingIntegrator struct {
 
 func NewDirectLightingIntegrator(strategy LightStrategy, maxDepth int, camera Camera, sampler Sampler, pixelBounds *Bounds2i) *DirectLightingIntegrator {
 	return &DirectLightingIntegrator{
-		SamplerIntegrator: NewSamplerIntegrator(camera, sampler, pixelBounds),
-		strategy:          strategy,
-		maxDepth:          maxDepth,
+		camera:      camera,
+		sampler:     sampler,
+		pixelBounds: pixelBounds,
+		strategy:    strategy,
+		maxDepth:    maxDepth,
 	}
+}
+
+func (dli *DirectLightingIntegrator) GetSampler() Sampler {
+	return dli.sampler
+}
+
+func (dli *DirectLightingIntegrator) GetCamera() Camera {
+	return dli.camera
 }
 
 func (dli *DirectLightingIntegrator) Preprocess(scene Scene, sampler Sampler) {
@@ -526,3 +534,12 @@ func (dli *DirectLightingIntegrator) Li(ctx context.Context, ray *RayDifferentia
 
 	return L
 }
+
+func (dli *DirectLightingIntegrator) SpecularReflect(ctx context.Context, ray *RayDifferential, si *SurfaceInteraction, scene Scene, sampler Sampler, depth int) Spectrum {
+	return SamplerIntegratorSpecularReflect(dli, ctx, ray, si, scene, sampler, depth)
+}
+
+func (dli *DirectLightingIntegrator)SpecularTransmit(ctx context.Context, ray *RayDifferential, si *SurfaceInteraction, scene Scene, sampler Sampler, depth int) Spectrum {
+	return SamplerIntegratorSpecularTransmit(dli, ctx, ray, si, scene, sampler, depth)
+}
+

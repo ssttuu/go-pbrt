@@ -4,7 +4,7 @@ import "C"
 import (
 	"log"
 
-	"github.com/stupschwartz/go-pbrt/pkg/math"
+	"github.com/ssttuu/go-pbrt/pkg/math"
 )
 
 func New(v, err float64) *EFloat {

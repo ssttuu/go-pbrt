@@ -1,6 +1,6 @@
 package pbrt
 
-import "github.com/stupschwartz/go-pbrt/pkg/math"
+import "github.com/ssttuu/go-pbrt/pkg/math"
 
 type Quaternion struct {
 	v *Vector3f

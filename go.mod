@@ -1,4 +1,4 @@
-module github.com/stupschwartz/go-pbrt
+module github.com/ssttuu/go-pbrt
 
 require (
 	github.com/cheekybits/genny v1.0.0

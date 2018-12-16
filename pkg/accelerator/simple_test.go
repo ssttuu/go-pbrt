@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stupschwartz/go-pbrt/pkg/pbrt"
+	"github.com/ssttuu/go-pbrt/pkg/pbrt"
 )
 
 var primitives = []pbrt.Primitive{

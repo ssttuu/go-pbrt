@@ -3,7 +3,7 @@
 package pbrt
 
 import (
-	"github.com/stupschwartz/go-pbrt/pkg/math"
+	"github.com/ssttuu/go-pbrt/pkg/math"
 )
 
 type LightFlag int

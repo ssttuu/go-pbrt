@@ -5,7 +5,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"github.com/stupschwartz/go-pbrt/pkg/pbrt"
+	"github.com/ssttuu/go-pbrt/pkg/pbrt"
 )
 
 func TestScene_Intersect(t *testing.T) {

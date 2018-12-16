@@ -3,7 +3,7 @@ package accelerator
 import (
 	"testing"
 )
-import "github.com/stupschwartz/go-pbrt/pkg/pbrt"
+import "github.com/ssttuu/go-pbrt/pkg/pbrt"
 
 var result bool
 

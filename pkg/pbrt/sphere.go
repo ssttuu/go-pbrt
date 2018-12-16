@@ -1,8 +1,8 @@
 package pbrt
 
 import (
-	"github.com/stupschwartz/go-pbrt/pkg/efloat"
-	"github.com/stupschwartz/go-pbrt/pkg/math"
+	"github.com/ssttuu/go-pbrt/pkg/efloat"
+	"github.com/ssttuu/go-pbrt/pkg/math"
 )
 
 type Sphere struct {

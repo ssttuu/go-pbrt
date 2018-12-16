@@ -1,8 +1,8 @@
 package shapes
 
 import (
-	"github.com/stupschwartz/go-pbrt/pkg/math"
-	"github.com/stupschwartz/go-pbrt/pkg/pbrt"
+	"github.com/ssttuu/go-pbrt/pkg/math"
+	"github.com/ssttuu/go-pbrt/pkg/pbrt"
 )
 
 type shape struct {

@@ -3,8 +3,8 @@ package accelerator
 import (
 	"log"
 
-	"github.com/stupschwartz/go-pbrt/pkg/math"
-	"github.com/stupschwartz/go-pbrt/pkg/pbrt"
+	"github.com/ssttuu/go-pbrt/pkg/math"
+	"github.com/ssttuu/go-pbrt/pkg/pbrt"
 )
 
 func NewSimpleAggregate(primitives []pbrt.Primitive) *Simple {
