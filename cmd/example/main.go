@@ -5,7 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"github.com/ssttuu/go-pbrt/pkg/materials"
+	"github.com/ssttuu/go-pbrt/pkg/math"
 	"github.com/ssttuu/go-pbrt/pkg/shapes"
+	"github.com/ssttuu/go-pbrt/pkg/textures"
 	"log"
 	"os"
 	"runtime/pprof"
@@ -37,8 +39,7 @@ func main() {
 
 	n := 8
 
-	for k := 0; k <= n; k++ {
-
+	for k := 1; k < n; k++ {
 		for i := 0; i < 3; i++ {
 			var x, y, z float64
 			var color pbrt.Spectrum
@@ -54,8 +55,9 @@ func main() {
 				z = float64(k) / float64(n) * 100
 				color = pbrt.NewRGBSpectrum(0, 0, 1)
 			}
-
 			radius := 2.0
+			y = math.Max(y, radius / 2)
+
 			sphere := pbrt.NewSphereShape(
 				fmt.Sprintf("Sphere: %v, %v, %v - MatteMaterial", x, y, z),
 				pbrt.Translate(new(pbrt.Vector3f)), true, radius)
@@ -70,16 +72,16 @@ func main() {
 		}
 	}
 
-	xformLocal := pbrt.Translate(new(pbrt.Vector3f))
+	xformLocal := pbrt.Translate(&pbrt.Vector3f{5, 2.5, 5})
 	sphere := pbrt.NewSphereShape("Green Sphere", xformLocal, true, 5.0)
 
 	glass := materials.NewGlass(
-		pbrt.NewConstantSpectrumTexture(pbrt.NewSpectrum(0.5)),
-		pbrt.NewConstantSpectrumTexture(pbrt.NewSpectrum(0.5)),
+		pbrt.NewConstantSpectrumTexture(pbrt.NewSpectrum(1)),
+		pbrt.NewConstantSpectrumTexture(pbrt.NewSpectrum(1)),
 		pbrt.NewConstantFloatTexture(0),
 		pbrt.NewConstantFloatTexture(0),
 		pbrt.NewConstantFloatTexture(1.5),
-		pbrt.NewConstantFloatTexture(0),
+		nil,
 	)
 
 	geoPrim := pbrt.NewGeometricPrimitive(sphere, glass)
@@ -89,16 +91,21 @@ func main() {
 	sigma := pbrt.NewConstantFloatTexture(0.0)
 	diskXform := pbrt.Translate(new(pbrt.Vector3f)).Mul(pbrt.RotateX(90))
 	disk := shapes.NewDisk(diskXform, 0.01, 500, 0, 360)
-	diskPrim := pbrt.NewGeometricPrimitive(disk, pbrt.NewMatteMaterial(pbrt.NewConstantSpectrumTexture(pbrt.NewRGBSpectrum(1, 1, 1)), sigma, nil))
+	checkerboard := textures.NewCheckerboard2D(
+		pbrt.NewPlanarMapping2D(&pbrt.Vector3f{.2, 0, 0}, &pbrt.Vector3f{0, 0, .2}, 0, 0),
+		pbrt.NewConstantSpectrumTexture(pbrt.NewSpectrum(1.0)),
+		pbrt.NewConstantSpectrumTexture(pbrt.NewSpectrum(0.18)),
+	)
+	diskPrim := pbrt.NewGeometricPrimitive(disk, pbrt.NewMatteMaterial(checkerboard, sigma, nil))
 	primitives = append(primitives, diskPrim)
 
 	agg := accelerator.NewBVH(primitives, 2, accelerator.SplitSAH)
 
 	lights := []pbrt.Light{
 		pbrt.NewPointLight(
-			pbrt.Translate(&pbrt.Vector3f{300, 5, 0}),
+			pbrt.Translate(&pbrt.Vector3f{-100, 100, 100}),
 			nil,
-			pbrt.NewSpectrum(4000),
+			pbrt.NewSpectrum(1200),
 		),
 		pbrt.NewPointLight(
 			pbrt.Translate(&pbrt.Vector3f{50, 20, 50}),

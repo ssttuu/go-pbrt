@@ -2,7 +2,6 @@ package pbrt
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"math"
 
@@ -222,7 +221,7 @@ type RenderableTile struct {
 	Bounds  Bounds2i
 }
 
-func renderWorker(ctx context.Context, s Integrator, scene Scene, tiles <-chan RenderableTile, progress chan<- bool) func() error {
+func renderWorker(ctx context.Context, s Integrator, scene Scene, tiles <-chan RenderableTile, progress ProgressReporter) func() error {
 	return func() error {
 		for rt := range tiles {
 			camera := s.GetCamera()
@@ -278,12 +277,7 @@ func renderWorker(ctx context.Context, s Integrator, scene Scene, tiles <-chan R
 
 			camera.GetFilm().MergeFilmTile(filmTile)
 
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case progress <- true:
-
-			}
+			progress.Step()
 		}
 
 		return nil
@@ -300,28 +294,15 @@ func Render(ctx context.Context, s Integrator, scene Scene, tileSize int64) erro
 	sampleExtent := sampleBounds.Diagonal()
 	nTiles := &Point2i{X: (sampleExtent.X + tileSize - 1) / tileSize, Y: (sampleExtent.Y + tileSize - 1) / tileSize}
 
-	g, ctx := errgroup.WithContext(ctx)
-
 	tiles := make(chan RenderableTile)
-	progress := make(chan bool)
+	progress := NewProgress(nTiles.X * nTiles.Y)
+	progress.Start(ctx)
+
+	g, gtx := errgroup.WithContext(ctx)
 
 	for i := 0; i < 64; i++ {
-		g.Go(renderWorker(ctx, s, scene, tiles, progress))
+		g.Go(renderWorker(gtx, s, scene, tiles, progress))
 	}
-
-	go func() {
-		g.Wait()
-		close(progress)
-	}()
-
-	go func() {
-		i := float64(0)
-		total := float64(nTiles.X*nTiles.Y) / 100
-		for range progress {
-			i++
-			fmt.Printf("Progress: %.2f%%\n", i/total)
-		}
-	}()
 
 	g.Go(func() error {
 		defer close(tiles)
@@ -345,8 +326,8 @@ func Render(ctx context.Context, s Integrator, scene Scene, tileSize int64) erro
 				}
 
 				select {
-				case <-ctx.Done():
-					return ctx.Err()
+				case <-gtx.Done():
+					return gtx.Err()
 				case tiles <- renderableTile:
 				}
 			}
@@ -539,7 +520,6 @@ func (dli *DirectLightingIntegrator) SpecularReflect(ctx context.Context, ray *R
 	return SamplerIntegratorSpecularReflect(dli, ctx, ray, si, scene, sampler, depth)
 }
 
-func (dli *DirectLightingIntegrator)SpecularTransmit(ctx context.Context, ray *RayDifferential, si *SurfaceInteraction, scene Scene, sampler Sampler, depth int) Spectrum {
+func (dli *DirectLightingIntegrator) SpecularTransmit(ctx context.Context, ray *RayDifferential, si *SurfaceInteraction, scene Scene, sampler Sampler, depth int) Spectrum {
 	return SamplerIntegratorSpecularTransmit(dli, ctx, ray, si, scene, sampler, depth)
 }
-
