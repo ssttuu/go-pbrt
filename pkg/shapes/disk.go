@@ -30,7 +30,7 @@ func NewDisk(objectToWorld *pbrt.Transform, height, radius, innerRadius, phiMax 
 		height:      height,
 		radius:      radius,
 		innerRadius: innerRadius,
-		phiMax:      math.Radians(math.Clamp(phiMax, 0, 360)) ,
+		phiMax:      math.Radians(math.Clamp(phiMax, 0, 360)),
 	}
 }
 

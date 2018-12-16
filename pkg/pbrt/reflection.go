@@ -829,7 +829,7 @@ func (mt *MicrofacetTransmission) Pdf(wo, wi *Vector3f) float64 {
 	}
 	wh := wo.Add(wi.MulScalar(eta))
 
-	sqrtDenom := wo.Dot(wh) + eta * wi.Dot(wh)
+	sqrtDenom := wo.Dot(wh) + eta*wi.Dot(wh)
 	dwhDwi := math.Abs((eta * eta * wi.Dot(wh)) / (sqrtDenom * sqrtDenom))
 	return mt.distribution.Pdf(wo, wh) * dwhDwi
 }

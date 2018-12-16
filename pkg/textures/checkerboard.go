@@ -14,9 +14,9 @@ const (
 
 func NewCheckerboard2D(m pbrt.TextureMapping2D, tex1, tex2 pbrt.SpectrumTexture) *Checkerboard2D {
 	return &Checkerboard2D{
-		mapping: m,
-		tex1: tex1,
-		tex2: tex2,
+		mapping:            m,
+		tex1:               tex1,
+		tex2:               tex2,
 		antiAliasingMethod: none,
 	}
 }
@@ -30,7 +30,7 @@ type Checkerboard2D struct {
 func (c *Checkerboard2D) Evaluate(si *pbrt.SurfaceInteraction) pbrt.Spectrum {
 	st, _, _ := c.mapping.Map(si)
 	if c.antiAliasingMethod == none {
-		if int(math.Floor(st.X) + math.Floor(st.Y)) % 2 == 0 {
+		if int(math.Floor(st.X)+math.Floor(st.Y))%2 == 0 {
 			return c.tex1.Evaluate(si)
 		}
 		return c.tex2.Evaluate(si)
@@ -38,4 +38,3 @@ func (c *Checkerboard2D) Evaluate(si *pbrt.SurfaceInteraction) pbrt.Spectrum {
 	// TODO:
 	return pbrt.NewSpectrum(1.0)
 }
-

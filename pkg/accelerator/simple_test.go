@@ -3,8 +3,8 @@ package accelerator
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/ssttuu/go-pbrt/pkg/pbrt"
+	"github.com/stretchr/testify/assert"
 )
 
 var primitives = []pbrt.Primitive{

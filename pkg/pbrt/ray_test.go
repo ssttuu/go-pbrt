@@ -3,8 +3,8 @@ package pbrt
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/ssttuu/go-pbrt/pkg/math"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestOffsetRayOrigin(t *testing.T) {
