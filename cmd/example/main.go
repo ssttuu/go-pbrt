@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/ssttuu/go-pbrt/pkg/integrator"
 	"github.com/ssttuu/go-pbrt/pkg/materials"
 	"github.com/ssttuu/go-pbrt/pkg/math"
 	"github.com/ssttuu/go-pbrt/pkg/shapes"
@@ -143,10 +144,10 @@ func main() {
 	camAnimXform := pbrt.NewAnimatedTransform(camXform, camXform, 0, 1)
 	camera := pbrt.NewPerspectiveCamera(camAnimXform, cropBounds, shutterOpen, shutterClose, 0, 20, 100, film, nil)
 
-	integrator := pbrt.NewDirectLightingIntegrator(pbrt.UniformSampleAll, 10, camera, sampler, pixelBounds)
+	dli := integrator.NewDirectLighting(integrator.UniformSampleAll, 10, camera, sampler, pixelBounds)
 
 	ctx := context.Background()
-	err = pbrt.Render(ctx, integrator, scene, 16)
+	err = pbrt.Render(ctx, dli, scene, 16)
 	if err != nil {
 		log.Fatal(err)
 	}
