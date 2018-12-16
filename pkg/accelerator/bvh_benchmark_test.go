@@ -3,7 +3,7 @@ package accelerator
 import (
 	"testing"
 
-	"github.com/stupschwartz/go-pbrt/pkg/pbrt"
+	"github.com/ssttuu/go-pbrt/pkg/pbrt"
 )
 
 func benchmarkBVH_Intersect(b *testing.B, n int) {

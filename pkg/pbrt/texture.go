@@ -14,7 +14,7 @@ type ConstantSpectrumTexture struct {
 	value Spectrum
 }
 
-func NewConstantSpectrumTexture(s Spectrum) SpectrumTexture {
+func NewConstantSpectrumTexture(s Spectrum) *ConstantSpectrumTexture {
 	return &ConstantSpectrumTexture{
 		value: s,
 	}

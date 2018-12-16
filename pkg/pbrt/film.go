@@ -9,7 +9,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/stupschwartz/go-pbrt/pkg/math"
+	"github.com/ssttuu/go-pbrt/pkg/math"
 )
 
 type FilmTilePixel struct {

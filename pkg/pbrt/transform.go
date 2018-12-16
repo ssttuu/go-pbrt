@@ -4,7 +4,7 @@ import (
 	"log"
 
 	"github.com/pkg/errors"
-	"github.com/stupschwartz/go-pbrt/pkg/math"
+	"github.com/ssttuu/go-pbrt/pkg/math"
 )
 
 var ErrSingularMatrix = errors.New("singular Matrix in Matrix invert")

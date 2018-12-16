@@ -2,7 +2,7 @@
 
 package pbrt
 
-import "github.com/stupschwartz/go-pbrt/pkg/math"
+import "github.com/ssttuu/go-pbrt/pkg/math"
 
 type Camera interface {
 	GenerateRay(sample *CameraSample) (float64, *Ray)

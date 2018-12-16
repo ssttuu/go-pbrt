@@ -3,7 +3,7 @@ package pbrt
 import (
 	"math"
 
-	"github.com/stupschwartz/go-pbrt/pkg/geometry"
+	"github.com/ssttuu/go-pbrt/pkg/geometry"
 )
 
 type Point2i = geometry.XYInt64

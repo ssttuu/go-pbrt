@@ -4,14 +4,15 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/stupschwartz/go-pbrt/pkg/shapes"
+	"github.com/ssttuu/go-pbrt/pkg/materials"
+	"github.com/ssttuu/go-pbrt/pkg/shapes"
 	"log"
 	"os"
 	"runtime/pprof"
 	"time"
 
-	"github.com/stupschwartz/go-pbrt/pkg/accelerator"
-	"github.com/stupschwartz/go-pbrt/pkg/pbrt"
+	"github.com/ssttuu/go-pbrt/pkg/accelerator"
+	"github.com/ssttuu/go-pbrt/pkg/pbrt"
 )
 
 var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to `file`")
@@ -72,11 +73,20 @@ func main() {
 	xformLocal := pbrt.Translate(new(pbrt.Vector3f))
 	sphere := pbrt.NewSphereShape("Green Sphere", xformLocal, true, 5.0)
 
-	sigma := pbrt.NewConstantFloatTexture(0.0)
-	geoPrim := pbrt.NewGeometricPrimitive(sphere, pbrt.NewMatteMaterial(pbrt.NewConstantSpectrumTexture(pbrt.NewRGBSpectrum(1, 1, 1)), sigma, nil))
+	glass := materials.NewGlass(
+		pbrt.NewConstantSpectrumTexture(pbrt.NewSpectrum(0.5)),
+		pbrt.NewConstantSpectrumTexture(pbrt.NewSpectrum(0.5)),
+		pbrt.NewConstantFloatTexture(0),
+		pbrt.NewConstantFloatTexture(0),
+		pbrt.NewConstantFloatTexture(1.5),
+		pbrt.NewConstantFloatTexture(0),
+	)
+
+	geoPrim := pbrt.NewGeometricPrimitive(sphere, glass)
 	xformPrim := pbrt.NewTransformedPrimitive(geoPrim, pbrt.NewAnimatedTransform(xformLocal, xformLocal, 0, 1))
 	primitives = append(primitives, xformPrim)
 
+	sigma := pbrt.NewConstantFloatTexture(0.0)
 	diskXform := pbrt.Translate(new(pbrt.Vector3f)).Mul(pbrt.RotateX(90))
 	disk := shapes.NewDisk(diskXform, 0.01, 500, 0, 360)
 	diskPrim := pbrt.NewGeometricPrimitive(disk, pbrt.NewMatteMaterial(pbrt.NewConstantSpectrumTexture(pbrt.NewRGBSpectrum(1, 1, 1)), sigma, nil))
@@ -94,6 +104,11 @@ func main() {
 			pbrt.Translate(&pbrt.Vector3f{50, 20, 50}),
 			nil,
 			pbrt.NewSpectrum(100),
+		),
+		pbrt.NewPointLight(
+			pbrt.Translate(&pbrt.Vector3f{-50, 30, -50}),
+			nil,
+			pbrt.NewSpectrum(50),
 		),
 	}
 

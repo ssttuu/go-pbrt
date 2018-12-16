@@ -1,8 +1,8 @@
-//go:generate mockgen -source=reflection.go -destination=reflection.mock.go -package=pbrt
-
 package pbrt
 
-import "github.com/stupschwartz/go-pbrt/pkg/math"
+import (
+	"github.com/ssttuu/go-pbrt/pkg/math"
+)
 
 const MaxBxDFs = 8
 
@@ -16,6 +16,29 @@ const (
 	BSDFSpecular
 	BSDFAll = BSDFDiffuse | BSDFGlossy | BSDFSpecular | BSDFReflection | BSDFTransmission
 )
+
+func FrDielectric(cosThetaI, etaI, etaT float64) float64 {
+	cosThetaI = math.Clamp(cosThetaI, -1, 1)
+	// potentially swap indices of refraction
+	entering := cosThetaI > 0
+	if !entering {
+		etaI, etaT = etaT, etaI
+		cosThetaI = math.Abs(cosThetaI)
+	}
+
+	// compute cosThetaT using Snell's law
+	sinThetaI := math.Sqrt(math.Max(0, 1-cosThetaI*cosThetaI))
+	sinThetaT := etaI / etaT * sinThetaI
+
+	// handle total internal reflection
+	if sinThetaT >= 1 {
+		return 1
+	}
+	cosThetaT := math.Sqrt(math.Max(0, 1-sinThetaT*sinThetaT))
+	Rparl := ((etaT * cosThetaI) - (etaI * cosThetaT)) / ((etaT * cosThetaI) + (etaI * cosThetaT))
+	Rperp := ((etaI * cosThetaI) - (etaT * cosThetaT)) / ((etaI * cosThetaI) + (etaT * cosThetaT))
+	return (Rparl*Rparl + Rperp*Rperp) / 2
+}
 
 func SameHemisphere(w, wp *Vector3f) bool {
 	return w.Z*wp.Z > 0
@@ -73,6 +96,24 @@ func Cos2Phi(w *Vector3f) float64 {
 
 func Sin2Phi(w *Vector3f) float64 {
 	return SinPhi(w) * SinPhi(w)
+}
+
+func Reflect(wo, n *Vector3f) *Vector3f {
+	return wo.MulScalar(-1).Add(n.MulScalar(2 * wo.Dot(n)))
+}
+
+func Refract(wi *Vector3f, n *Normal3f, eta float64) (*Vector3f, bool) {
+	// compute cos theta_roman using Snell's law
+	cosThetaI := n.Dot(wi)
+	sin2ThetaI := math.Max(0, 1-cosThetaI*cosThetaI)
+	sin2ThetaT := eta * eta * sin2ThetaI
+
+	// handle total internal reflection for transmission
+	if sin2ThetaT >= 1 {
+		return nil, false
+	}
+	cosThetaT := math.Sqrt(1 - sin2ThetaT)
+	return wi.MulScalar(-eta).Add(n.MulScalar(eta*cosThetaI - cosThetaT)), true
 }
 
 type BSDF struct {
@@ -155,11 +196,11 @@ func (b *BSDF) SampleF(woWorld *Vector3f, u *Point2f, t BxDFType) (s Spectrum, w
 	var bxdf BxDF
 	for i := 0; i < b.nBxDFs; i++ {
 		if MatchesFlags(b.bxdfs[i].GetType(), t) {
-			count--
 			if count == 0 {
 				bxdf = b.bxdfs[i]
 				break
 			}
+			count--
 		}
 	}
 
@@ -345,6 +386,155 @@ func (f *FresnelNoOp) Evaluate(cosI float64) Spectrum {
 	return NewSpectrum(1.0)
 }
 
+func NewFresnelDielectric(etaI, etaT float64) *FresnelDielectric {
+	return &FresnelDielectric{
+		etaI: etaI,
+		etaT: etaT,
+	}
+}
+
+type FresnelDielectric struct {
+	etaI float64
+	etaT float64
+}
+
+func (f *FresnelDielectric) Evaluate(cosI float64) Spectrum {
+	return NewSpectrum(FrDielectric(cosI, f.etaI, f.etaT))
+}
+
+func NewSpecularTransmission(T Spectrum, etaA, etaB float64, mode TransportMode) *SpecularTransmission {
+	return &SpecularTransmission{
+		bxDF:    NewBxDF(BSDFTransmission | BSDFSpecular),
+		T:       T,
+		etaA:    etaA,
+		etaB:    etaB,
+		fresnel: NewFresnelDielectric(etaA, etaB),
+		mode:    mode,
+	}
+}
+
+type SpecularTransmission struct {
+	*bxDF
+	T          Spectrum
+	etaA, etaB float64
+	fresnel    *FresnelDielectric
+	mode       TransportMode
+}
+
+func (t *SpecularTransmission) F(woW, wiW *Vector3f) Spectrum {
+	return NewSpectrum(0)
+}
+
+func (t *SpecularTransmission) SampleF(wo *Vector3f, sample *Point2f) (s Spectrum, wi *Vector3f, pdf float64, sampledType BxDFType) {
+	entering := CosTheta(wo) > 0
+	var etaI, etaT float64
+	if entering {
+		etaI = t.etaA
+		etaT = t.etaB
+	} else {
+		etaI = t.etaB
+		etaT = t.etaA
+	}
+
+	// compute ray direction for specular transmission
+	wi, refracts := Refract(wo, FaceForward(&Normal3f{0, 0, 1}, wo), etaI/etaT)
+	if !refracts {
+		return NewSpectrum(0), wi, 0, 0
+	}
+
+	ft := t.T.Mul(NewSpectrum(1).Sub(t.fresnel.Evaluate(CosTheta(wi))))
+	// account for non-symmetry with transmission to different medium
+	if t.mode == Radiance {
+		ft = ft.MulScalar((etaI * etaI) / (etaT * etaT))
+	}
+	return ft.DivScalar(AbsCosTheta(wi)), wi, 1, 0
+}
+
+func (t *SpecularTransmission) Rho(wo *Vector3f, samples []*Point2f) Spectrum {
+	return rho(t, wo, samples)
+}
+
+func (t *SpecularTransmission) RhoSamples(samples1, samples2 []*Point2f) Spectrum {
+	return rhoSamples(t, samples1, samples2)
+}
+
+func (t *SpecularTransmission) Pdf(wo, wi *Vector3f) float64 {
+	return 0
+}
+
+func NewFresnelSpecular(R, T Spectrum, etaA, etaB float64, mode TransportMode) *FresnelSpecular {
+	return &FresnelSpecular{
+		bxDF: NewBxDF(BSDFReflection | BSDFTransmission | BSDFSpecular),
+		R:    R,
+		T:    T,
+		etaA: etaA,
+		etaB: etaB,
+		mode: mode,
+	}
+}
+
+type FresnelSpecular struct {
+	*bxDF
+
+	R    Spectrum
+	T    Spectrum
+	etaA float64
+	etaB float64
+	mode TransportMode
+}
+
+func (f *FresnelSpecular) F(woW, wiW *Vector3f) Spectrum {
+	return NewSpectrum(0.0)
+}
+func (f *FresnelSpecular) SampleF(wo *Vector3f, sample *Point2f) (s Spectrum, wi *Vector3f, pdf float64, sampledType BxDFType) {
+	F := FrDielectric(CosTheta(wo), f.etaA, f.etaB)
+	if sample.X < F {
+		// compute specular reflection for FresnelSpecular
+		// compute perfect specular reflection direction
+		wi := &Vector3f{-wo.X, -wo.Y, wo.Z}
+		return f.R.MulScalar(F).DivScalar(AbsCosTheta(wi)), wi, F, BSDFSpecular | BSDFReflection
+	}
+
+	// compute specular transmission for FresnelSpecular
+
+	// figure out which eta is incident and which is transmitted
+	var etaI, etaT float64
+	entering := CosTheta(wo) > 0
+	if entering {
+		etaI = f.etaA
+		etaT = f.etaB
+	} else {
+		etaI = f.etaB
+		etaT = f.etaA
+	}
+
+	// compute ray direction for specular transmission
+	wi, refracts := Refract(wo, FaceForward(&Normal3f{0, 0, 1}, wo), etaI/etaT)
+	if !refracts {
+		return NewSpectrum(0), wi, 0, 0
+	}
+
+	ft := f.T.MulScalar(1 - F)
+
+	// account for non-symmetry with transmission to different medium
+	if f.mode == Radiance {
+		ft = ft.MulScalar((etaI * etaI) / (etaT / etaT))
+	}
+	return ft.DivScalar(AbsCosTheta(wi)), wi, 1 - F, BSDFSpecular | BSDFTransmission
+}
+
+func (f *FresnelSpecular) Rho(wo *Vector3f, samples []*Point2f) Spectrum {
+	return rho(f, wo, samples)
+}
+
+func (f *FresnelSpecular) RhoSamples(samples1, samples2 []*Point2f) Spectrum {
+	return rhoSamples(f, samples1, samples2)
+}
+
+func (f *FresnelSpecular) Pdf(wo, wi *Vector3f) float64 {
+	return 0
+}
+
 func NewSpecularReflection(r Spectrum, fresnel Fresnel) *SpecularReflection {
 	return &SpecularReflection{
 		bxDF:    NewBxDF(BSDFReflection | BSDFDiffuse),
@@ -475,4 +665,171 @@ func (o *OrenNayar) RhoSamples(samples1, samples2 []*Point2f) Spectrum {
 
 func (o *OrenNayar) Pdf(wo, wi *Vector3f) float64 {
 	return pdf(wo, wi)
+}
+
+func NewMicrofacetReflection(R Spectrum, d Distribution, f Fresnel) *MicrofacetReflection {
+	return &MicrofacetReflection{
+		bxDF:         NewBxDF(BSDFReflection | BSDFGlossy),
+		R:            R,
+		distribution: d,
+		fresnel:      f,
+	}
+}
+
+type MicrofacetReflection struct {
+	*bxDF
+	R            Spectrum
+	distribution Distribution
+	fresnel      Fresnel
+}
+
+func (m *MicrofacetReflection) GetType() BxDFType {
+	return m.bxDF.Type
+}
+
+func (m *MicrofacetReflection) F(wo, wi *Vector3f) Spectrum {
+	cosTheta0 := AbsCosTheta(wo)
+	cosTheta1 := AbsCosTheta(wi)
+	wh := wi.Add(wo)
+	// handle degenerate cases for microfacet reflection
+	if cosTheta1 == 0 || cosTheta0 == 0 {
+		return NewSpectrum(0)
+	}
+	if wh.X == 0 && wh.Y == 0 && wh.Z == 0 {
+		return NewSpectrum(0)
+	}
+	wh.Normalize()
+	F := m.fresnel.Evaluate(wi.Dot(wh))
+	return m.R.Mul(F).MulScalar(m.distribution.D(wh) * m.distribution.G(wo, wi) / (4 * cosTheta1 * cosTheta0))
+}
+
+func (m *MicrofacetReflection) SampleF(wo *Vector3f, sample *Point2f) (s Spectrum, wi *Vector3f, pdf float64, sampledType BxDFType) {
+	// sample microfacet orientation wh and reflected direction wi
+	if wo.Z == 0 {
+		return NewSpectrum(0), nil, 0, 0
+	}
+	wh := m.distribution.SampleWH(wo, sample)
+	wi = Reflect(wo, wh)
+	if !SameHemisphere(wo, wi) {
+		return NewSpectrum(0), nil, 0, 0
+	}
+
+	// compute PDF of wi for microfacet reflection
+	pdf = m.distribution.Pdf(wo, wh) / (4 * wo.Dot(wh))
+	return m.F(wo, wi), wi, pdf, 0
+}
+
+func (m *MicrofacetReflection) Rho(wo *Vector3f, samples []*Point2f) Spectrum {
+	return rho(m, wo, samples)
+}
+
+func (m *MicrofacetReflection) RhoSamples(samples1, samples2 []*Point2f) Spectrum {
+	return rhoSamples(m, samples1, samples2)
+}
+
+func (m *MicrofacetReflection) Pdf(wo, wi *Vector3f) float64 {
+	if !SameHemisphere(wo, wi) {
+		return 0
+	}
+	wh := wo.Add(wi).Normalized()
+	return m.distribution.Pdf(wo, wh) / (4 * wo.Dot(wh))
+}
+
+func NewMicrofacetTransmission(T Spectrum, d Distribution, etaA, etaB float64, mode TransportMode) *MicrofacetTransmission {
+	return &MicrofacetTransmission{
+		bxDF:         NewBxDF(BSDFTransmission | BSDFGlossy),
+		T:            T,
+		distribution: d,
+		etaA:         etaA,
+		etaB:         etaB,
+		fresnel:      NewFresnelDielectric(etaA, etaB),
+	}
+}
+
+type MicrofacetTransmission struct {
+	*bxDF
+	T            Spectrum
+	distribution Distribution
+	etaA, etaB   float64
+	fresnel      *FresnelDielectric
+	mode         TransportMode
+}
+
+func (mt *MicrofacetTransmission) F(wo, wi *Vector3f) Spectrum {
+	if !SameHemisphere(wo, wi) {
+		return NewSpectrum(0) // transmission only
+	}
+
+	cosThetaO := CosTheta(wo)
+	cosThetaI := CosTheta(wi)
+	if cosThetaI == 0 || cosThetaO == 0 {
+		return NewSpectrum(0)
+	}
+
+	// compute wh from wo and wi for microfacet transmission
+	var eta float64
+	if CosTheta(wo) > 0 {
+		eta = mt.etaA / mt.etaB
+	} else {
+		eta = mt.etaB / mt.etaA
+	}
+	wh := wo.Add(wi.MulScalar(eta))
+	if wh.Z < 0 {
+		wh = wh.MulScalar(-1)
+	}
+
+	F := mt.fresnel.Evaluate(wo.Dot(wh))
+
+	sqrtDenom := wo.Dot(wh) * eta * wi.Dot(wh)
+	factor := 1.0
+	if mt.mode == Radiance {
+		factor = 1 / eta
+	}
+
+	return NewSpectrum(1.0).Sub(F).Mul(mt.T).MulScalar(math.Abs(mt.distribution.D(wh) * mt.distribution.G(wo, wi) * eta * eta * wi.AbsDot(wh) * wo.AbsDot(wh) * factor * factor / (cosThetaI * cosThetaO * sqrtDenom * sqrtDenom)))
+}
+
+func (mt *MicrofacetTransmission) SampleF(wo *Vector3f, sample *Point2f) (s Spectrum, wi *Vector3f, pdf float64, sampledType BxDFType) {
+	if wo.Z == 0 {
+		return NewSpectrum(0), nil, 0, 0
+	}
+	wh := mt.distribution.SampleWH(wo, sample)
+	var eta float64
+	if CosTheta(wo) > 0 {
+		eta = mt.etaA / mt.etaB
+	} else {
+		eta = mt.etaB / mt.etaA
+	}
+
+	wi, refracts := Refract(wo, wh, eta)
+	if !refracts {
+		return NewSpectrum(0), nil, 0, 0
+	}
+
+	return mt.F(wo, wi), wi, mt.Pdf(wo, wi), 0
+}
+
+func (mt *MicrofacetTransmission) Rho(wo *Vector3f, samples []*Point2f) Spectrum {
+	return rho(mt, wo, samples)
+}
+
+func (mt *MicrofacetTransmission) RhoSamples(samples1, samples2 []*Point2f) Spectrum {
+	return rhoSamples(mt, samples1, samples2)
+}
+
+func (mt *MicrofacetTransmission) Pdf(wo, wi *Vector3f) float64 {
+	if SameHemisphere(wo, wi) {
+		return 0
+	}
+	var eta float64
+	if CosTheta(wo) > 0 {
+		eta = mt.etaA / mt.etaB
+	} else {
+		eta = mt.etaB / mt.etaA
+	}
+	wh := wo.Add(wi.MulScalar(eta))
+
+	sqrtDenom := wo.Dot(wh) + eta * wi.Dot(wh)
+	dwhDwi := math.Abs((eta * eta * wi.Dot(wh)) / (sqrtDenom * sqrtDenom))
+	return mt.distribution.Pdf(wo, wh) * dwhDwi
 }
