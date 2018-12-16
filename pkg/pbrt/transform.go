@@ -294,7 +294,7 @@ func (t *Transform) TransformSurfaceInteraction(si *SurfaceInteraction) *Surface
 	ret.Point, ret.PointError = t.TransformPoint(si.Point, si.PointError)
 
 	ret.Normal = t.TransformNormal(si.Normal).Normalized()
-	ret.wo = t.TransformVector(si.wo).Normalized()
+	ret.Wo = t.TransformVector(si.Wo).Normalized()
 	ret.time = si.time
 	ret.mediumAccessor = si.mediumAccessor
 	ret.uv = si.uv

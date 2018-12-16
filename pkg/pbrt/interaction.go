@@ -24,7 +24,7 @@ type interaction struct {
 	Point          *Point3f
 	PointError     *Vector3f
 	time           float64
-	wo             *Vector3f
+	Wo             *Vector3f
 	Normal         *Normal3f
 	mediumAccessor *MediumAccessor
 }
@@ -34,7 +34,7 @@ func NewInteraction(p *Point3f, pError *Vector3f, n *Normal3f, wo *Vector3f, tim
 		Point:          p,
 		PointError:     pError,
 		Normal:         n,
-		wo:             wo,
+		Wo:             wo,
 		time:           time,
 		mediumAccessor: mediumAccessor,
 	}
@@ -134,7 +134,7 @@ func NewSurfaceInteraction() *SurfaceInteraction {
 	return &SurfaceInteraction{
 		interaction: &interaction{
 			Point:          new(Point3f),
-			wo:             new(Vector3f),
+			Wo:             new(Vector3f),
 			Normal:         new(Normal3f),
 			mediumAccessor: nil,
 		},
@@ -168,7 +168,7 @@ func NewSurfaceInteractionWith(p *Point3f, pError *Vector3f, uv *Point2f, wo *Ve
 			Point:      p,
 			PointError: pError,
 			time:       time,
-			wo:         wo,
+			Wo:         wo,
 			Normal:     normal,
 		},
 		//bssrdf: new(BSSRDF),

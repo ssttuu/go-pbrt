@@ -298,7 +298,7 @@ func MatchesFlags(t, flags BxDFType) bool {
 	return (t & flags) == t
 }
 
-//func (b *bxDF) F(wo, wi *Vector3f) Spectrum {
+//func (b *bxDF) F(Wo, wi *Vector3f) Spectrum {
 //	return nil
 //}
 
@@ -766,7 +766,7 @@ func (mt *MicrofacetTransmission) F(wo, wi *Vector3f) Spectrum {
 		return NewSpectrum(0)
 	}
 
-	// compute wh from wo and wi for microfacet transmission
+	// compute wh from Wo and wi for microfacet transmission
 	var eta float64
 	if CosTheta(wo) > 0 {
 		eta = mt.etaA / mt.etaB
