@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/ssttuu/go-pbrt/pkg/accelerator"
 	"github.com/ssttuu/go-pbrt/pkg/integrator"
+	"github.com/ssttuu/go-pbrt/pkg/lights"
 	"github.com/ssttuu/go-pbrt/pkg/materials"
 	"github.com/ssttuu/go-pbrt/pkg/math"
 	"github.com/ssttuu/go-pbrt/pkg/pbrt"
@@ -22,7 +23,7 @@ func RegisterServer(s *grpc.Server) error {
 	return nil
 }
 
-type server struct {}
+type server struct{}
 
 func (s *server) Render(ctx context.Context, req *render.RenderRequest) (*render.RenderResponse, error) {
 	var primitives []pbrt.Primitive
@@ -80,7 +81,7 @@ func (s *server) Render(ctx context.Context, req *render.RenderRequest) (*render
 
 	sigma := pbrt.NewConstantFloatTexture(0.0)
 	diskXform := pbrt.Translate(new(pbrt.Vector3f)).Mul(pbrt.RotateX(90))
-	disk := shapes.NewDisk(diskXform, 0.01, 500, 0, 360)
+	disk := shapes.NewDisk(diskXform, 0.01, 10000, 0, 360)
 	checkerboard := textures.NewCheckerboard2D(
 		pbrt.NewPlanarMapping2D(&pbrt.Vector3f{.2, 0, 0}, &pbrt.Vector3f{0, 0, .2}, 0, 0),
 		pbrt.NewConstantSpectrumTexture(pbrt.NewSpectrum(1.0)),
@@ -91,11 +92,11 @@ func (s *server) Render(ctx context.Context, req *render.RenderRequest) (*render
 
 	agg := accelerator.NewBVH(primitives, 2, accelerator.SplitSAH)
 
-	lights := []pbrt.Light{
-		pbrt.NewPointLight(
+	ls := []pbrt.Light{
+		lights.NewDistant(
 			pbrt.Translate(&pbrt.Vector3f{-100, 100, 100}),
-			nil,
-			pbrt.NewSpectrum(1200),
+			pbrt.NewSpectrum(0.05),
+			&pbrt.Vector3f{-1, 1, 1},
 		),
 		pbrt.NewPointLight(
 			pbrt.Translate(&pbrt.Vector3f{50, 20, 50}),
@@ -109,7 +110,7 @@ func (s *server) Render(ctx context.Context, req *render.RenderRequest) (*render
 		),
 	}
 
-	scene := pbrt.NewScene(agg, lights, []pbrt.Light{})
+	scene := pbrt.NewScene(agg, ls)
 
 	shutterOpen, shutterClose := 0.0, 1.0
 
