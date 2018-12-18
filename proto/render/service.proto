@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package render;
+
+service Render {
+    rpc Render(RenderRequest) returns (RenderResponse) {};
+}
+
+message RenderRequest {
+    string scene_id = 1;
+
+    double time = 2;
+    int32 width = 3;
+    int32 height = 4;
+}
+
+message RenderResponse {
+    string path = 1;
+}
