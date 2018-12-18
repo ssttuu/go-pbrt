@@ -1,41 +1,30 @@
-package main
+package render
 
 import (
 	"context"
-	"flag"
 	"fmt"
-	"log"
-	"os"
-	"runtime/pprof"
-	"time"
-
+	"github.com/pkg/errors"
 	"github.com/ssttuu/go-pbrt/pkg/accelerator"
 	"github.com/ssttuu/go-pbrt/pkg/integrator"
 	"github.com/ssttuu/go-pbrt/pkg/materials"
 	"github.com/ssttuu/go-pbrt/pkg/math"
 	"github.com/ssttuu/go-pbrt/pkg/pbrt"
+	"github.com/ssttuu/go-pbrt/pkg/proto/render"
 	"github.com/ssttuu/go-pbrt/pkg/shapes"
 	"github.com/ssttuu/go-pbrt/pkg/textures"
+	"google.golang.org/grpc"
+	"os"
+	"time"
 )
 
-var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to `file`")
+func RegisterServer(s *grpc.Server) error {
+	render.RegisterRenderServer(s, &server{})
+	return nil
+}
 
-func main() {
+type server struct {}
 
-	flag.Parse()
-	if *cpuprofile != "" {
-		f, err := os.Create(*cpuprofile)
-		if err != nil {
-			log.Fatal("could not create CPU profile: ", err)
-		}
-		if err := pprof.StartCPUProfile(f); err != nil {
-			log.Fatal("could not start CPU profile: ", err)
-		}
-		defer pprof.StopCPUProfile()
-	}
-
-	// START
-
+func (s *server) Render(ctx context.Context, req *render.RenderRequest) (*render.RenderResponse, error) {
 	var primitives []pbrt.Primitive
 
 	n := 8
@@ -73,8 +62,8 @@ func main() {
 		}
 	}
 
-	xformLocal := pbrt.Translate(&pbrt.Vector3f{5, 2.5, 5})
-	sphere := pbrt.NewSphereShape("Green Sphere", xformLocal, true, 5.0)
+	xformLocal := pbrt.Translate(&pbrt.Vector3f{50, 2.5, 50})
+	sphere := pbrt.NewSphereShape("Green Sphere", pbrt.Translate(new(pbrt.Vector3f)), true, 5.0)
 
 	glass := materials.NewGlass(
 		pbrt.NewConstantSpectrumTexture(pbrt.NewSpectrum(1)),
@@ -124,8 +113,7 @@ func main() {
 
 	shutterOpen, shutterClose := 0.0, 1.0
 
-	resolution := &pbrt.Point2i{X: 1920, Y: 1080}
-	resolution = resolution.DivScalar(1)
+	resolution := &pbrt.Point2i{X: int64(req.Width), Y: int64(req.Height)}
 
 	cropBounds := &pbrt.Bounds2f{Min: &pbrt.Point2f{X: 0, Y: 0}, Max: &pbrt.Point2f{X: 1, Y: 1}}
 	boxFilter := pbrt.NewBoxFilter(&pbrt.Point2f{X: 1, Y: 1})
@@ -133,11 +121,17 @@ func main() {
 	pixelBounds := &pbrt.Bounds2i{Min: &pbrt.Point2i{X: 0, Y: 0}, Max: resolution}
 	sampler := pbrt.NewRandomSampler(8, 4)
 
-	film := pbrt.NewFilm(fmt.Sprintf("build/render-%s.png", time.Now().Format(time.RFC3339)), resolution, cropBounds, boxFilter, 100.0, 1.0, 1.0)
+	if _, err := os.Stat("build"); os.IsNotExist(err) {
+		if err := os.Mkdir("build", 0644); err != nil {
+			return nil, errors.Wrap(err, "making directory")
+		}
+	}
+	path := fmt.Sprintf("build/render-%s.png", time.Now().Format(time.RFC3339))
+	film := pbrt.NewFilm(path, resolution, cropBounds, boxFilter, 100.0, 1.0, 1.0)
 
 	camXform, err := pbrt.LookAt(&pbrt.Point3f{X: 150, Y: 150, Z: 150}, &pbrt.Point3f{X: 0, Y: 0, Z: 0}, &pbrt.Vector3f{0, 1, 0})
 	if err != nil {
-		log.Fatal(err)
+		return nil, errors.Wrap(err, "look at")
 	}
 	camXform = camXform.Mul(pbrt.RotateY(-30)).Mul(pbrt.RotateX(-30))
 
@@ -146,10 +140,12 @@ func main() {
 
 	dli := integrator.NewDirectLighting(integrator.UniformSampleAll, 10, camera, sampler, pixelBounds)
 
-	ctx := context.Background()
 	err = pbrt.Render(ctx, dli, scene, 16)
 	if err != nil {
-		log.Fatal(err)
+		return nil, errors.Wrap(err, "rendering")
 	}
 
+	return &render.RenderResponse{
+		Path: path,
+	}, nil
 }
