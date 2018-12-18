@@ -290,8 +290,8 @@ func (c *PerspectiveCamera) SampleWi(ref Interaction, u *Point2f) (s Spectrum, w
 	lensIntr := &interaction{
 		Point:  pLensWorld,
 		Normal: c.cameraToWorld.TransformVectorAtTime(&Vector3f{0, 0, 1}, ref.GetTime()),
-		time:   ref.GetTime(),
-		//mediumAccessor: c.Medium,
+		Time:   ref.GetTime(),
+		//MediumAccessor: c.Medium,
 	}
 
 	// populate arguments and compute the importance value

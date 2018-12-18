@@ -10,15 +10,29 @@ type Scene interface {
 	Light(index int) Light
 	Lights() []Light
 	InfiniteLights() []Light
+	WorldBound() *Bounds3
 }
 
-func NewScene(aggregate Aggregate, lights, infiniteLights []Light) Scene {
-	return &scene{
-		lights:         lights,
-		infiniteLights: infiniteLights,
-		aggregate:      aggregate,
-		worldBound:     aggregate.WorldBound(),
+func NewScene(aggregate Aggregate, lights []Light) Scene {
+	s := &scene{
+		lights:     lights,
+		aggregate:  aggregate,
+		worldBound: aggregate.WorldBound(),
 	}
+
+	s.worldBound = s.aggregate.WorldBound()
+
+	var infiniteLights []Light
+	for _, light := range lights {
+		light.Preprocess(s)
+		if light.GetFlags()&LightFlagInfinite > 0 {
+			infiniteLights = append(infiniteLights, light)
+		}
+	}
+
+	s.infiniteLights = infiniteLights
+
+	return s
 }
 
 type scene struct {
@@ -72,4 +86,8 @@ func (s *scene) Lights() []Light {
 
 func (s *scene) InfiniteLights() []Light {
 	return s.infiniteLights
+}
+
+func (s *scene) WorldBound() *Bounds3 {
+	return s.worldBound
 }

@@ -17,16 +17,17 @@ type Interaction interface {
 	GetTime() float64
 	GetNormal() *Normal3f
 	//GetMedium(*Vector3f) *Medium
+	GetMediumAccessor() *MediumAccessor
 	SetMediumAccessor(accessor *MediumAccessor)
 }
 
 type interaction struct {
 	Point          *Point3f
 	PointError     *Vector3f
-	time           float64
+	Time           float64
 	Wo             *Vector3f
 	Normal         *Normal3f
-	mediumAccessor *MediumAccessor
+	MediumAccessor *MediumAccessor
 }
 
 func NewInteraction(p *Point3f, pError *Vector3f, n *Normal3f, wo *Vector3f, time float64, mediumAccessor *MediumAccessor) *interaction {
@@ -35,8 +36,8 @@ func NewInteraction(p *Point3f, pError *Vector3f, n *Normal3f, wo *Vector3f, tim
 		PointError:     pError,
 		Normal:         n,
 		Wo:             wo,
-		time:           time,
-		mediumAccessor: mediumAccessor,
+		Time:           time,
+		MediumAccessor: mediumAccessor,
 	}
 }
 
@@ -53,22 +54,26 @@ func (i *interaction) GetNormal() *Normal3f {
 }
 
 func (i *interaction) GetTime() float64 {
-	return i.time
+	return i.Time
+}
+
+func (i *interaction) GetMediumAccessor() *MediumAccessor {
+	return i.MediumAccessor
 }
 
 func (i *interaction) SetMediumAccessor(accessor *MediumAccessor) {
-	i.mediumAccessor = accessor
+	i.MediumAccessor = accessor
 }
 
 func (i *interaction) SpawnRay(direction *Vector3f) *Ray {
 	origin := OffsetRayOrigin(i.Point, i.PointError, i.Normal, direction)
-	return &Ray{origin, direction, math.Infinity, i.time, i.GetMedium(direction)}
+	return &Ray{origin, direction, math.Infinity, i.Time, i.GetMedium(direction)}
 }
 
 func (i *interaction) SpawnRayToPoint(p *Point3f) *Ray {
 	direction := p.Sub(i.Point)
 	origin := OffsetRayOrigin(i.Point, i.PointError, i.Normal, direction)
-	return &Ray{origin, direction, 1 - math.ShadowEpsilon, i.time, i.GetMedium(direction)}
+	return &Ray{origin, direction, 1 - math.ShadowEpsilon, i.Time, i.GetMedium(direction)}
 }
 
 func (i *interaction) SpawnRayToInteraction(to Interaction) *Ray {
@@ -79,7 +84,7 @@ func (i *interaction) SpawnRayToInteraction(to Interaction) *Ray {
 		Origin:    i.Point,
 		Direction: direction,
 		TMax:      1 - math.ShadowEpsilon,
-		Time:      i.time,
+		Time:      i.Time,
 		Medium:    i.GetMedium(direction),
 	}
 }
@@ -94,9 +99,9 @@ func (i *interaction) IsMediumInteraction() bool {
 
 func (i *interaction) GetMedium(w *Vector3f) Medium {
 	if w.Dot(i.Normal) > 0 {
-		return i.mediumAccessor.Outside
+		return i.MediumAccessor.Outside
 	}
-	return i.mediumAccessor.Inside
+	return i.MediumAccessor.Inside
 }
 
 func PhaseHG(cosTheta float64, g float64) float64 {
@@ -136,7 +141,7 @@ func NewSurfaceInteraction() *SurfaceInteraction {
 			Point:          new(Point3f),
 			Wo:             new(Vector3f),
 			Normal:         new(Normal3f),
-			mediumAccessor: nil,
+			MediumAccessor: nil,
 		},
 		uv:    new(Point2f),
 		dpdu:  new(Vector3f),
@@ -167,7 +172,7 @@ func NewSurfaceInteractionWith(p *Point3f, pError *Vector3f, uv *Point2f, wo *Ve
 		interaction: &interaction{
 			Point:      p,
 			PointError: pError,
-			time:       time,
+			Time:       time,
 			Wo:         wo,
 			Normal:     normal,
 		},

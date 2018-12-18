@@ -102,6 +102,15 @@ type Bounds3 struct {
 	Max *Point3f
 }
 
+func (b *Bounds3) BoundingSphere() (center *Point3f, radius float64) {
+	center = b.Min.Add(b.Max).DivScalar(2.0)
+	radius = 0
+	if Inside(center, b) {
+		radius = center.Distance(b.Max)
+	}
+	return center, radius
+}
+
 func (b *Bounds3) Corner(corner int) *Point3f {
 	return &Point3f{
 		X: b.Index(corner & 1).X,

@@ -114,3 +114,8 @@ func FaceForward(n1, n2 *Normal3f) *Normal3f {
 	}
 	return n1
 }
+
+func Inside(p *Point3f, b *Bounds3) bool {
+	return p.X >= b.Min.X && p.X <= b.Max.X && p.Y >= b.Min.Y &&
+		p.Y <= b.Max.Y && p.Z >= b.Min.Z && p.Z <= b.Max.Z
+}

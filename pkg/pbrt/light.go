@@ -22,7 +22,7 @@ func IsDeltaLight(flags LightFlag) bool {
 type Light interface {
 	GetFlags() LightFlag
 	GetSamples() int32
-	Preprocess()
+	Preprocess(s Scene)
 
 	SampleLi(ref Interaction, u *Point2f) (s Spectrum, wi *Vector3f, pdf float64, vis *VisibilityTester)
 	Power() Spectrum
@@ -68,7 +68,7 @@ func (l *PointLight) GetSamples() int32 {
 	return l.nSamples
 }
 
-func (l *PointLight) Preprocess() {
+func (l *PointLight) Preprocess(s Scene) {
 
 }
 

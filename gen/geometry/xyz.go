@@ -3,8 +3,8 @@ package geometry
 
 import (
 	"fmt"
-	"math"
 	"github.com/cheekybits/genny/generic"
+	"math"
 )
 
 type GenericType generic.Type
@@ -284,7 +284,7 @@ func (xyz *XYZGenericType) Cross(other *XYZGenericType) *XYZGenericType {
 
 func (xyz *XYZGenericType) Normalize() {
 	nor2 := xyz.LengthSquared()
-	if (nor2 > 0) {
+	if nor2 > 0 {
 		invNor := GenericType(1) / GenericType(math.Sqrt(float64(nor2)))
 		xyz.X *= invNor
 		xyz.Y *= invNor
