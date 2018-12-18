@@ -98,12 +98,12 @@ func (s *server) Render(ctx context.Context, req *render.RenderRequest) (*render
 			pbrt.NewSpectrum(0.05),
 			&pbrt.Vector3f{-1, 1, 1},
 		),
-		pbrt.NewPointLight(
+		lights.NewPoint(
 			pbrt.Translate(&pbrt.Vector3f{50, 20, 50}),
 			nil,
 			pbrt.NewSpectrum(100),
 		),
-		pbrt.NewPointLight(
+		lights.NewPoint(
 			pbrt.Translate(&pbrt.Vector3f{-50, 30, -50}),
 			nil,
 			pbrt.NewSpectrum(50),
