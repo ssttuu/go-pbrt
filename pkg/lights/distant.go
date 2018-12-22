@@ -47,7 +47,7 @@ func (d *Distant) Power() pbrt.Spectrum {
 	return d.L.MulScalar(math.Pi * d.worldRadius * d.worldRadius)
 }
 
-func (d *Distant) Le(r *pbrt.RayDifferential) pbrt.Spectrum {
+func (d *Distant) Le(r *pbrt.Ray) pbrt.Spectrum {
 	return pbrt.Le(r)
 }
 

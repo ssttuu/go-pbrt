@@ -125,8 +125,8 @@ type BSDF struct {
 }
 
 func NewBSDF(si *SurfaceInteraction, eta float64) *BSDF {
-	ns := si.shading.normal
-	ss := si.shading.dpdu.Normalized()
+	ns := si.Shading.Normal
+	ss := si.Shading.dpdu.Normalized()
 	return &BSDF{
 		Eta:    eta,
 		ns:     ns,

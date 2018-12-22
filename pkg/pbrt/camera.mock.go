@@ -47,10 +47,10 @@ func (mr *MockCameraMockRecorder) GenerateRay(sample interface{}) *gomock.Call {
 }
 
 // GenerateRayDifferential mocks base method
-func (m *MockCamera) GenerateRayDifferential(sample *CameraSample) (float64, *RayDifferential) {
+func (m *MockCamera) GenerateRayDifferential(sample *CameraSample) (float64, *Ray) {
 	ret := m.ctrl.Call(m, "GenerateRayDifferential", sample)
 	ret0, _ := ret[0].(float64)
-	ret1, _ := ret[1].(*RayDifferential)
+	ret1, _ := ret[1].(*Ray)
 	return ret0, ret1
 }
 

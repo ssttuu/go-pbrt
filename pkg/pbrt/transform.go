@@ -284,7 +284,19 @@ func (t *Transform) TransformRay(ray *Ray) (r *Ray, originErr, directionErr *Vec
 		dt := direction.Abs().Dot(originErr) / lengthSquared
 		origin.AddAssign(direction.MulScalar(dt))
 	}
-	return &Ray{origin, direction, ray.TMax, ray.Time, ray.Medium}, originErr, directionErr
+	r = &Ray{
+		Origin:           origin,
+		Direction:        direction,
+		TMax:             ray.TMax,
+		Time:             ray.Time,
+		Medium:           ray.Medium,
+		HasDifferentials: ray.HasDifferentials,
+		rxOrigin:         ray.rxOrigin,
+		ryOrigin:         ray.ryOrigin,
+		rxDirection:      ray.rxDirection,
+		ryDirection:      ray.ryDirection,
+	}
+	return r, originErr, directionErr
 }
 
 func (t *Transform) TransformSurfaceInteraction(si *SurfaceInteraction) *SurfaceInteraction {
@@ -303,11 +315,11 @@ func (t *Transform) TransformSurfaceInteraction(si *SurfaceInteraction) *Surface
 	ret.dpdv = t.TransformVector(ret.dpdv)
 	ret.dndu = t.TransformNormal(ret.dndu)
 	ret.dndv = t.TransformNormal(ret.dndv)
-	ret.shading.normal = t.TransformNormal(si.shading.normal)
-	ret.shading.dpdu = t.TransformVector(si.shading.dpdu)
-	ret.shading.dpdv = t.TransformVector(si.shading.dpdv)
-	ret.shading.dndu = t.TransformNormal(si.shading.dndu)
-	ret.shading.dndv = t.TransformNormal(si.shading.dndv)
+	ret.Shading.Normal = t.TransformNormal(si.Shading.Normal)
+	ret.Shading.dpdu = t.TransformVector(si.Shading.dpdu)
+	ret.Shading.dpdv = t.TransformVector(si.Shading.dpdv)
+	ret.Shading.dndu = t.TransformNormal(si.Shading.dndu)
+	ret.Shading.dndv = t.TransformNormal(si.Shading.dndv)
 	ret.dudx = si.dudx
 	ret.dvdx = si.dvdx
 	ret.dudy = si.dudy
@@ -316,7 +328,7 @@ func (t *Transform) TransformSurfaceInteraction(si *SurfaceInteraction) *Surface
 	//ret.dpdy = Type.TransformVector(si.dpdy)
 	ret.BSDF = si.BSDF
 	ret.Primitive = si.Primitive
-	ret.shading.normal = FaceForward(ret.shading.normal, ret.Normal)
+	ret.Shading.Normal = FaceForward(ret.Shading.Normal, ret.Normal)
 	ret.faceIndex = si.faceIndex
 	return &ret
 }

@@ -117,6 +117,18 @@ func (mr *MockInteractionMockRecorder) GetNormal() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetNormal", reflect.TypeOf((*MockInteraction)(nil).GetNormal))
 }
 
+// GetMediumAccessor mocks base method
+func (m *MockInteraction) GetMediumAccessor() *MediumAccessor {
+	ret := m.ctrl.Call(m, "GetMediumAccessor")
+	ret0, _ := ret[0].(*MediumAccessor)
+	return ret0
+}
+
+// GetMediumAccessor indicates an expected call of GetMediumAccessor
+func (mr *MockInteractionMockRecorder) GetMediumAccessor() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMediumAccessor", reflect.TypeOf((*MockInteraction)(nil).GetMediumAccessor))
+}
+
 // SetMediumAccessor mocks base method
 func (m *MockInteraction) SetMediumAccessor(accessor *MediumAccessor) {
 	m.ctrl.Call(m, "SetMediumAccessor", accessor)

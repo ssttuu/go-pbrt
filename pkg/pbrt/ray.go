@@ -8,6 +8,10 @@ type Ray struct {
 	TMax      float64
 	Time      float64
 	Medium    Medium
+
+	HasDifferentials         bool
+	rxOrigin, ryOrigin       *Point3f
+	rxDirection, ryDirection *Vector3f
 }
 
 func NewRay(origin *Point3f, direction *Vector3f, time float64) *Ray {
@@ -27,6 +31,22 @@ func NewRayWithMedium(origin *Point3f, direction *Vector3f, time float64, medium
 		TMax:      math.Infinity,
 		Time:      time,
 		Medium:    medium,
+	}
+}
+
+func NewRayDifferentialFromRay(r *Ray) *Ray {
+	return &Ray{
+		Origin:    r.Origin,
+		Direction: r.Direction,
+		TMax:      r.TMax,
+		Time:      r.Time,
+		Medium:    r.Medium,
+
+		HasDifferentials: false,
+		rxOrigin:         new(Point3f),
+		ryOrigin:         new(Point3f),
+		rxDirection:      new(Vector3f),
+		ryDirection:      new(Vector3f),
 	}
 }
 
@@ -53,34 +73,11 @@ func OffsetRayOrigin(p *Point3f, pError *Vector3f, n *Normal3f, w *Vector3f) *Po
 	return po
 }
 
-type RayDifferential struct {
-	*Ray
-
-	hasDifferentials         bool
-	rxOrigin, ryOrigin       *Point3f
-	rxDirection, ryDirection *Vector3f
-}
-
-func NewRayDifferential() *RayDifferential {
-	return &RayDifferential{}
-}
-
-func NewRayDifferentialFromRay(r *Ray) *RayDifferential {
-	return &RayDifferential{
-		Ray:              r,
-		hasDifferentials: false,
-		rxOrigin:         new(Point3f),
-		ryOrigin:         new(Point3f),
-		rxDirection:      new(Vector3f),
-		ryDirection:      new(Vector3f),
-	}
-}
-
-func (rd *RayDifferential) ScaleDifferentials(s float64) {
-	subbin := rd.rxOrigin.Sub(rd.Origin)
+func (r *Ray) ScaleDifferentials(s float64) {
+	subbin := r.rxOrigin.Sub(r.Origin)
 	mulscalarin := subbin.MulScalar(s)
-	rd.rxOrigin = rd.Origin.Add(mulscalarin)
-	rd.ryOrigin = rd.Origin.Add(rd.ryOrigin.Sub(rd.Origin).MulScalar(s))
-	rd.rxDirection = rd.Direction.Add(rd.rxDirection.Sub(rd.Direction).MulScalar(s))
-	rd.ryDirection = rd.Direction.Add(rd.ryDirection.Sub(rd.Direction).MulScalar(s))
+	r.rxOrigin = r.Origin.Add(mulscalarin)
+	r.ryOrigin = r.Origin.Add(r.ryOrigin.Sub(r.Origin).MulScalar(s))
+	r.rxDirection = r.Direction.Add(r.rxDirection.Sub(r.Direction).MulScalar(s))
+	r.ryDirection = r.Direction.Add(r.ryDirection.Sub(r.Direction).MulScalar(s))
 }

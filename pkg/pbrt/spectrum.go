@@ -182,6 +182,14 @@ func (s Spectrum) DivScalar(other float64) Spectrum {
 	return ns
 }
 
+func (s Spectrum) MaxComponentValue() float64 {
+	m := s[0]
+	for i := 1; i < len(s); i++ {
+		m = math.Max(m, s[i])
+	}
+	return m
+}
+
 func (s Spectrum) Clamp(low, high float64) Spectrum {
 	for i := 0; i < len(s); i++ {
 		s[i] = math.Clamp(s[i], low, high)

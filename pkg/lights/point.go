@@ -52,7 +52,7 @@ func (l *Point) Power() pbrt.Spectrum {
 	return l.I.MulScalar(4 * math.Pi)
 }
 
-func (l *Point) Le(r *pbrt.RayDifferential) pbrt.Spectrum {
+func (l *Point) Le(r *pbrt.Ray) pbrt.Spectrum {
 	return pbrt.Le(r)
 }
 
