@@ -15,9 +15,9 @@ type Integrator interface {
 
 	Preprocess(scene Scene, sampler Sampler)
 	//Render(scene Scene)
-	Li(ctx context.Context, ray *RayDifferential, scene Scene, sampler Sampler, depth int) Spectrum
-	SpecularReflect(ctx context.Context, ray *RayDifferential, si *SurfaceInteraction, scene Scene, sampler Sampler, depth int) Spectrum
-	SpecularTransmit(ctx context.Context, ray *RayDifferential, si *SurfaceInteraction, scene Scene, sampler Sampler, depth int) Spectrum
+	Li(ctx context.Context, ray *Ray, scene Scene, sampler Sampler, depth int) Spectrum
+	SpecularReflect(ctx context.Context, ray *Ray, si *SurfaceInteraction, scene Scene, sampler Sampler, depth int) Spectrum
+	SpecularTransmit(ctx context.Context, ray *Ray, si *SurfaceInteraction, scene Scene, sampler Sampler, depth int) Spectrum
 }
 
 func UniformSampleAllLights(it Interaction, scene Scene, sampler Sampler, nLightSamples []int32, handleMedia bool) Spectrum {
@@ -55,6 +55,7 @@ func UniformSampleOneLight(it Interaction, scene Scene, sampler Sampler, handleM
 	var lightPdf float64
 	if lightDistrib != nil {
 		lightNum, lightPdf, _ = lightDistrib.SampleDiscrete(sampler.Get1D())
+
 		if lightPdf == 0.0 {
 			return NewSpectrum(0)
 		}
@@ -69,6 +70,9 @@ func UniformSampleOneLight(it Interaction, scene Scene, sampler Sampler, handleM
 
 	spectrum := EstimateDirect(it, *uScattering, light, *uLight, scene, sampler, handleMedia, false)
 	spectrum.DivScalar(lightPdf)
+	if spectrum.MaxComponentValue() > 10 {
+		panic(spectrum)
+	}
 	return spectrum
 }
 
@@ -89,7 +93,7 @@ func EstimateDirect(it Interaction, uScattering Point2f, light Light, uLight Poi
 		switch isect := it.(type) {
 		case *SurfaceInteraction:
 			f = isect.BSDF.F(isect.Wo, wi, bsdfFlags)
-			wiDotNormal := wi.AbsDot(isect.shading.normal)
+			wiDotNormal := wi.AbsDot(isect.Shading.Normal)
 			//return NewSpectrum(wiDotNormal)
 			f = f.MulScalar(wiDotNormal)
 			scatteringPdf = isect.BSDF.Pdf(isect.Wo, wi, bsdfFlags)
@@ -134,7 +138,7 @@ func EstimateDirect(it Interaction, uScattering Point2f, light Light, uLight Poi
 			// sample scattered Direction for surface interactions
 			var sampledType BxDFType
 			f, wi, scatteringPdf, sampledType = intr.BSDF.SampleF(intr.Wo, &uScattering, bsdfFlags)
-			f.MulScalar(wi.AbsDot(intr.shading.normal))
+			f.MulScalar(wi.AbsDot(intr.Shading.Normal))
 			sampledSpecular = sampledType&BSDFSpecular != 0
 		case *MediumInteraction:
 			// sample scattered Direction for Medium interactions
@@ -345,24 +349,24 @@ func Render(ctx context.Context, s Integrator, scene Scene, tileSize int64) erro
 	return nil
 }
 
-func SamplerIntegratorSpecularReflect(s Integrator, ctx context.Context, ray *RayDifferential, si *SurfaceInteraction, scene Scene, sampler Sampler, depth int) Spectrum {
+func SamplerIntegratorSpecularReflect(s Integrator, ctx context.Context, ray *Ray, si *SurfaceInteraction, scene Scene, sampler Sampler, depth int) Spectrum {
 	wo := si.Wo
 	t := BxDFType(BSDFReflection | BSDFSpecular)
 	f, wi, pdf, t := si.BSDF.SampleF(wo, sampler.Get2D(), t)
 
 	// return contribution of specular reflection
-	ns := si.shading.normal
+	ns := si.Shading.Normal
 	if pdf > 0 && !f.IsBlack() && wi.AbsDot(ns) != 0.0 {
 		// compute ray differential rd for specular reflection
 		rd := NewRayDifferentialFromRay(si.SpawnRay(wi))
-		if ray.hasDifferentials {
-			rd.hasDifferentials = true
+		if ray.HasDifferentials {
+			rd.HasDifferentials = true
 			rd.rxOrigin = si.Point.Add(si.dpdx)
 			rd.ryOrigin = si.Point.Add(si.dpdy)
 
 			// compute differential reflected directions
-			dndx := si.shading.dndu.MulScalar(si.dudx).Add(si.shading.dndv.MulScalar(si.dvdx))
-			dndy := si.shading.dndu.MulScalar(si.dudy).Add(si.shading.dndv.MulScalar(si.dvdy))
+			dndx := si.Shading.dndu.MulScalar(si.dudx).Add(si.Shading.dndv.MulScalar(si.dvdx))
+			dndy := si.Shading.dndu.MulScalar(si.dudy).Add(si.Shading.dndv.MulScalar(si.dvdy))
 			dwodx := ray.rxDirection.MulScalar(-1).Sub(wo)
 			dwody := ray.ryDirection.MulScalar(-1).Sub(wo)
 			dDNdx := dwodx.Dot(ns) + wo.Dot(dndx)
@@ -376,18 +380,18 @@ func SamplerIntegratorSpecularReflect(s Integrator, ctx context.Context, ray *Ra
 	return NewSpectrum(0)
 }
 
-func SamplerIntegratorSpecularTransmit(s Integrator, ctx context.Context, ray *RayDifferential, si *SurfaceInteraction, scene Scene, sampler Sampler, depth int) Spectrum {
+func SamplerIntegratorSpecularTransmit(s Integrator, ctx context.Context, ray *Ray, si *SurfaceInteraction, scene Scene, sampler Sampler, depth int) Spectrum {
 	wo := si.Wo
 	f, wi, pdf, _ := si.BSDF.SampleF(wo, sampler.Get2D(), BxDFType(BSDFTransmission|BSDFSpecular))
 
 	p := si.Point
-	ns := si.shading.normal
+	ns := si.Shading.Normal
 
 	L := NewSpectrum(0)
 	if pdf > 0 && !f.IsBlack() && wi.AbsDot(ns) != 0.0 {
 		rd := NewRayDifferentialFromRay(si.SpawnRay(wi))
-		if ray.hasDifferentials {
-			rd.hasDifferentials = true
+		if ray.HasDifferentials {
+			rd.HasDifferentials = true
 			rd.rxOrigin = p.Add(si.dpdx)
 			rd.ryOrigin = p.Add(si.dpdy)
 
@@ -397,8 +401,8 @@ func SamplerIntegratorSpecularTransmit(s Integrator, ctx context.Context, ray *R
 				eta = 1.0 / eta
 			}
 
-			dndx := si.shading.dndu.MulScalar(si.dudx).Add(si.shading.dndv.MulScalar(si.dvdx))
-			dndy := si.shading.dndu.MulScalar(si.dudy).Add(si.shading.dndv.MulScalar(si.dvdy))
+			dndx := si.Shading.dndu.MulScalar(si.dudx).Add(si.Shading.dndv.MulScalar(si.dvdx))
+			dndy := si.Shading.dndu.MulScalar(si.dudy).Add(si.Shading.dndv.MulScalar(si.dvdy))
 			dwodx := ray.rxDirection.MulScalar(-1).Sub(wo)
 			dwody := ray.ryDirection.MulScalar(-1).Sub(wo)
 			dDNdx := dwodx.Dot(ns) + wo.Dot(dndx)

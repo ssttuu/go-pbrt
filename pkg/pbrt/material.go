@@ -30,7 +30,7 @@ func Bump(m Material, d FloatTexture, si *SurfaceInteraction) {
 		du = 0.0005
 	}
 
-	siEval.Point = si.Point.Add(si.shading.dpdu.MulScalar(du))
+	siEval.Point = si.Point.Add(si.Shading.dpdu.MulScalar(du))
 
 }
 

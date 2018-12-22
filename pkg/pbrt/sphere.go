@@ -169,7 +169,19 @@ func (s *Sphere) Intersect(r *Ray, si *SurfaceInteraction, testAlphaTexture bool
 	// compute error bounds for sphere inertsection
 	pError := pHit.Abs().MulScalar(math.Gamma(5))
 
-	*si = *NewSurfaceInteractionWith(pHit, pError, &Point2f{u, v}, ray.Direction.MulScalar(-1), dpdu, dpdv, dndu, dndv, ray.Time, s, 0)
+	*si = *NewSurfaceInteractionWith(
+		pHit,
+		pError,
+		&Point2f{u, v},
+		ray.Direction.MulScalar(-1),
+		dpdu,
+		dpdv,
+		dndu,
+		dndv,
+		ray.Time,
+		s,
+		0,
+	)
 	*si = *s.objectToWorld.TransformSurfaceInteraction(si)
 
 	return true, tShapeHit.Value
@@ -258,7 +270,7 @@ func (s *Sphere) IntersectP(r *Ray, testAlphaTexture bool) (intersects bool) {
 func (s *Sphere) Sample(u *Point2f) (i Interaction, pdf float64) {
 	pObj := UniformSampleSphere(u).MulScalar(s.radius)
 
-	var it *interaction
+	it := NewSurfaceInteraction()
 	it.Normal = s.objectToWorld.TransformNormal(pObj).Normalized()
 	if s.reverseOrientation {
 		it.Normal = it.Normal.MulScalar(-1)

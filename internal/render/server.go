@@ -7,8 +7,6 @@ import (
 	"github.com/ssttuu/go-pbrt/pkg/accelerator"
 	"github.com/ssttuu/go-pbrt/pkg/integrator"
 	"github.com/ssttuu/go-pbrt/pkg/lights"
-	"github.com/ssttuu/go-pbrt/pkg/materials"
-	"github.com/ssttuu/go-pbrt/pkg/math"
 	"github.com/ssttuu/go-pbrt/pkg/pbrt"
 	"github.com/ssttuu/go-pbrt/pkg/proto/render"
 	"github.com/ssttuu/go-pbrt/pkg/shapes"
@@ -28,67 +26,77 @@ type server struct{}
 func (s *server) Render(ctx context.Context, req *render.RenderRequest) (*render.RenderResponse, error) {
 	var primitives []pbrt.Primitive
 
-	n := 8
+	//n := 8
 
-	for k := 1; k < n; k++ {
-		for i := 0; i < 3; i++ {
-			var x, y, z float64
-			var color pbrt.Spectrum
+	//for k := 1; k < n; k++ {
+	//	for i := 0; i < 3; i++ {
+	//		var x, y, z float64
+	//		var color pbrt.Spectrum
+	//
+	//		switch i {
+	//		case 0:
+	//			x = float64(k) / float64(n) * 100
+	//			color = pbrt.NewRGBSpectrum(1, 0, 0)
+	//		case 1:
+	//			y = float64(k) / float64(n) * 100
+	//			color = pbrt.NewRGBSpectrum(0, 1, 0)
+	//		case 2:
+	//			z = float64(k) / float64(n) * 100
+	//			color = pbrt.NewRGBSpectrum(0, 0, 1)
+	//		}
+	//		radius := 2.0
+	//		y = math.Max(y, radius/2)
+	//
+	//		sphere := pbrt.NewSphereShape(
+	//			fmt.Sprintf("Sphere: %v, %v, %v - MatteMaterial", x, y, z),
+	//			pbrt.Translate(new(pbrt.Vector3f)), true, radius)
+	//
+	//		xform := pbrt.Translate(&pbrt.Vector3f{x, y, z})
+	//		kd := pbrt.NewConstantSpectrumTexture(color)
+	//		sigma := pbrt.NewConstantFloatTexture(0.0)
+	//		geoPrim := pbrt.NewGeometricPrimitive(sphere, pbrt.NewMatteMaterial(kd, sigma, nil))
+	//		xformedPrimitive := pbrt.NewTransformedPrimitive(geoPrim, pbrt.NewAnimatedTransform(xform, xform, 0, 1))
+	//
+	//		primitives = append(primitives, xformedPrimitive)
+	//	}
+	//}
 
-			switch i {
-			case 0:
-				x = float64(k) / float64(n) * 100
-				color = pbrt.NewRGBSpectrum(1, 0, 0)
-			case 1:
-				y = float64(k) / float64(n) * 100
-				color = pbrt.NewRGBSpectrum(0, 1, 0)
-			case 2:
-				z = float64(k) / float64(n) * 100
-				color = pbrt.NewRGBSpectrum(0, 0, 1)
-			}
-			radius := 2.0
-			y = math.Max(y, radius/2)
+	//xformLocal := pbrt.Translate(&pbrt.Vector3f{50, 2.5, 50})
+	//sphere := pbrt.NewSphereShape("Glass Sphere", pbrt.Translate(new(pbrt.Vector3f)), false, 5.0)
 
-			sphere := pbrt.NewSphereShape(
-				fmt.Sprintf("Sphere: %v, %v, %v - MatteMaterial", x, y, z),
-				pbrt.Translate(new(pbrt.Vector3f)), true, radius)
 
-			xform := pbrt.Translate(&pbrt.Vector3f{x, y, z})
-			kd := pbrt.NewConstantSpectrumTexture(color)
-			sigma := pbrt.NewConstantFloatTexture(0.0)
-			geoPrim := pbrt.NewGeometricPrimitive(sphere, pbrt.NewMatteMaterial(kd, sigma, nil))
-			xformedPrimitive := pbrt.NewTransformedPrimitive(geoPrim, pbrt.NewAnimatedTransform(xform, xform, 0, 1))
-
-			primitives = append(primitives, xformedPrimitive)
-		}
-	}
-
-	xformLocal := pbrt.Translate(&pbrt.Vector3f{50, 2.5, 50})
-	sphere := pbrt.NewSphereShape("Green Sphere", pbrt.Translate(new(pbrt.Vector3f)), true, 5.0)
-
-	glass := materials.NewGlass(
-		pbrt.NewConstantSpectrumTexture(pbrt.NewSpectrum(1)),
-		pbrt.NewConstantSpectrumTexture(pbrt.NewSpectrum(1)),
-		pbrt.NewConstantFloatTexture(0),
-		pbrt.NewConstantFloatTexture(0),
-		pbrt.NewConstantFloatTexture(1.5),
-		nil,
-	)
-
-	geoPrim := pbrt.NewGeometricPrimitive(sphere, glass)
-	xformPrim := pbrt.NewTransformedPrimitive(geoPrim, pbrt.NewAnimatedTransform(xformLocal, xformLocal, 0, 1))
-	primitives = append(primitives, xformPrim)
-
+	//kd := pbrt.NewConstantSpectrumTexture(pbrt.NewRGBSpectrum(0, 1, 0))
 	sigma := pbrt.NewConstantFloatTexture(0.0)
-	diskXform := pbrt.Translate(new(pbrt.Vector3f)).Mul(pbrt.RotateX(90))
-	disk := shapes.NewDisk(diskXform, 0.01, 10000, 0, 360)
+
 	checkerboard := textures.NewCheckerboard2D(
 		pbrt.NewPlanarMapping2D(&pbrt.Vector3f{.2, 0, 0}, &pbrt.Vector3f{0, 0, .2}, 0, 0),
 		pbrt.NewConstantSpectrumTexture(pbrt.NewSpectrum(1.0)),
 		pbrt.NewConstantSpectrumTexture(pbrt.NewSpectrum(0.18)),
 	)
-	diskPrim := pbrt.NewGeometricPrimitive(disk, pbrt.NewMatteMaterial(checkerboard, sigma, nil))
-	primitives = append(primitives, diskPrim)
+	m := pbrt.NewMatteMaterial(checkerboard, sigma, nil)
+	//glass := materials.NewGlass(
+	//	pbrt.NewConstantSpectrumTexture(pbrt.NewSpectrum(.5)),
+	//	pbrt.NewConstantSpectrumTexture(pbrt.NewSpectrum(.5)),
+	//	pbrt.NewConstantFloatTexture(0),
+	//	pbrt.NewConstantFloatTexture(0),
+	//	pbrt.NewConstantFloatTexture(1.5),
+	//	nil,
+	//)
+
+
+
+
+	//geoPrim := pbrt.NewGeometricPrimitive(sphere, m)
+	//xformPrim := pbrt.NewTransformedPrimitive(geoPrim, pbrt.NewAnimatedTransform(xformLocal, xformLocal, 0, 1))
+	//primitives = append(primitives, xformPrim)
+
+	sigma = pbrt.NewConstantFloatTexture(0.0)
+	diskXform := pbrt.Translate(new(pbrt.Vector3f)).Mul(pbrt.RotateX(90))
+	disk := shapes.NewDisk(diskXform, 0.01, 10000, 0, 360)
+	disk2 := shapes.NewDisk(pbrt.Translate(&pbrt.Vector3f{-50, 0, -50}), 0.01, 10000, 0, 360)
+
+	diskPrim := pbrt.NewGeometricPrimitive(disk, m)
+	primitives = append(primitives, diskPrim, pbrt.NewGeometricPrimitive(disk2, m))
 
 	agg := accelerator.NewBVH(primitives, 2, accelerator.SplitSAH)
 
@@ -98,16 +106,24 @@ func (s *server) Render(ctx context.Context, req *render.RenderRequest) (*render
 			pbrt.NewSpectrum(0.05),
 			&pbrt.Vector3f{-1, 1, 1},
 		),
-		lights.NewPoint(
-			pbrt.Translate(&pbrt.Vector3f{50, 20, 50}),
-			nil,
-			pbrt.NewSpectrum(100),
-		),
-		lights.NewPoint(
-			pbrt.Translate(&pbrt.Vector3f{-50, 30, -50}),
-			nil,
-			pbrt.NewSpectrum(50),
-		),
+		//lights.NewPoint(
+		//	pbrt.Translate(&pbrt.Vector3f{50, 20, 50}),
+		//	nil,
+		//	pbrt.NewSpectrum(100),
+		//),
+		//lights.NewPoint(
+		//	pbrt.Translate(&pbrt.Vector3f{-50, 30, -50}),
+		//	nil,
+		//	pbrt.NewSpectrum(50),
+		//),
+		//lights.NewDiffuseAreaLight(
+		//	pbrt.Translate(&pbrt.Vector3f{-10, 5, 20}),
+		//	nil,
+		//	pbrt.NewSpectrum(0.2),
+		//	16,
+		//	pbrt.NewSphereShape("Light Sphere", pbrt.Translate(&pbrt.Vector3f{-10, 5, 20}), false, 5.0),
+		//	false,
+		//),
 	}
 
 	scene := pbrt.NewScene(agg, ls)
@@ -139,7 +155,8 @@ func (s *server) Render(ctx context.Context, req *render.RenderRequest) (*render
 	camAnimXform := pbrt.NewAnimatedTransform(camXform, camXform, 0, 1)
 	camera := pbrt.NewPerspectiveCamera(camAnimXform, cropBounds, shutterOpen, shutterClose, 0, 20, 100, film, nil)
 
-	dli := integrator.NewDirectLighting(integrator.UniformSampleAll, 10, camera, sampler, pixelBounds)
+	// dli := integrator.NewDirectLighting(integrator.UniformSampleAll, 10, camera, sampler, pixelBounds)
+	dli := integrator.NewPath(10, camera, sampler, pixelBounds, 1, pbrt.Uniform)
 
 	err = pbrt.Render(ctx, dli, scene, 16)
 	if err != nil {

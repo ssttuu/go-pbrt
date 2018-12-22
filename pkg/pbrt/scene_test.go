@@ -19,7 +19,7 @@ func TestScene_Intersect(t *testing.T) {
 		Times(1).
 		Return(&pbrt.Bounds3{})
 
-	scene := pbrt.NewScene(aggregate, []pbrt.Light{}, []pbrt.Light{})
+	scene := pbrt.NewScene(aggregate, []pbrt.Light{})
 
 	ray := pbrt.NewRay(&pbrt.Point3f{}, &pbrt.Vector3f{}, 0)
 	si := pbrt.NewSurfaceInteraction()
@@ -46,7 +46,7 @@ func TestScene_IntersectP(t *testing.T) {
 		Times(1).
 		Return(&pbrt.Bounds3{})
 
-	scene := pbrt.NewScene(aggregate, []pbrt.Light{}, []pbrt.Light{})
+	scene := pbrt.NewScene(aggregate, []pbrt.Light{})
 
 	ray := pbrt.NewRay(&pbrt.Point3f{}, &pbrt.Vector3f{}, 0)
 
@@ -74,7 +74,7 @@ func TestScene_IntersectTr(t *testing.T) {
 		Times(1).
 		Return(&pbrt.Bounds3{})
 
-	scene := pbrt.NewScene(aggregate, []pbrt.Light{}, []pbrt.Light{})
+	scene := pbrt.NewScene(aggregate, []pbrt.Light{})
 
 	ray := pbrt.NewRay(&pbrt.Point3f{}, &pbrt.Vector3f{}, 0)
 	si := pbrt.NewSurfaceInteraction()

@@ -116,3 +116,15 @@ func (m *MockScene) InfiniteLights() []Light {
 func (mr *MockSceneMockRecorder) InfiniteLights() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InfiniteLights", reflect.TypeOf((*MockScene)(nil).InfiniteLights))
 }
+
+// WorldBound mocks base method
+func (m *MockScene) WorldBound() *Bounds3 {
+	ret := m.ctrl.Call(m, "WorldBound")
+	ret0, _ := ret[0].(*Bounds3)
+	return ret0
+}
+
+// WorldBound indicates an expected call of WorldBound
+func (mr *MockSceneMockRecorder) WorldBound() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WorldBound", reflect.TypeOf((*MockScene)(nil).WorldBound))
+}

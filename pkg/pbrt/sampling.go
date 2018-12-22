@@ -103,7 +103,7 @@ func ConcentricSampleDisk(u *Point2f) *Point2f {
 
 func CosineSampleHemisphere(u *Point2f) *Vector3f {
 	d := ConcentricSampleDisk(u)
-	z := math.Sqrt(math.Max(0.0, 1.0-d.LengthSquared()))
+	z := math.Sqrt(math.Max(0.0, 1.0-d.X*d.X-d.Y*d.Y))
 	return &Vector3f{d.X, d.Y, z}
 }
 

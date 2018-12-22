@@ -33,18 +33,6 @@ func (m *MockShape) EXPECT() *MockShapeMockRecorder {
 	return m.recorder
 }
 
-// GetName mocks base method
-func (m *MockShape) GetName() string {
-	ret := m.ctrl.Call(m, "GetName")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// GetName indicates an expected call of GetName
-func (mr *MockShapeMockRecorder) GetName() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetName", reflect.TypeOf((*MockShape)(nil).GetName))
-}
-
 // ObjectBound mocks base method
 func (m *MockShape) ObjectBound() *Bounds3 {
 	ret := m.ctrl.Call(m, "ObjectBound")

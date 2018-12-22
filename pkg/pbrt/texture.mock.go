@@ -10,6 +10,43 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
+// MockTextureMapping2D is a mock of TextureMapping2D interface
+type MockTextureMapping2D struct {
+	ctrl     *gomock.Controller
+	recorder *MockTextureMapping2DMockRecorder
+}
+
+// MockTextureMapping2DMockRecorder is the mock recorder for MockTextureMapping2D
+type MockTextureMapping2DMockRecorder struct {
+	mock *MockTextureMapping2D
+}
+
+// NewMockTextureMapping2D creates a new mock instance
+func NewMockTextureMapping2D(ctrl *gomock.Controller) *MockTextureMapping2D {
+	mock := &MockTextureMapping2D{ctrl: ctrl}
+	mock.recorder = &MockTextureMapping2DMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use
+func (m *MockTextureMapping2D) EXPECT() *MockTextureMapping2DMockRecorder {
+	return m.recorder
+}
+
+// Map mocks base method
+func (m *MockTextureMapping2D) Map(si *SurfaceInteraction) (*Point2f, *Vector2f, *Vector2f) {
+	ret := m.ctrl.Call(m, "Map", si)
+	ret0, _ := ret[0].(*Point2f)
+	ret1, _ := ret[1].(*Vector2f)
+	ret2, _ := ret[2].(*Vector2f)
+	return ret0, ret1, ret2
+}
+
+// Map indicates an expected call of Map
+func (mr *MockTextureMapping2DMockRecorder) Map(si interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Map", reflect.TypeOf((*MockTextureMapping2D)(nil).Map), si)
+}
+
 // MockSpectrumTexture is a mock of SpectrumTexture interface
 type MockSpectrumTexture struct {
 	ctrl     *gomock.Controller

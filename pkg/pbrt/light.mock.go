@@ -58,13 +58,13 @@ func (mr *MockLightMockRecorder) GetSamples() *gomock.Call {
 }
 
 // Preprocess mocks base method
-func (m *MockLight) Preprocess() {
-	m.ctrl.Call(m, "Preprocess")
+func (m *MockLight) Preprocess(s Scene) {
+	m.ctrl.Call(m, "Preprocess", s)
 }
 
 // Preprocess indicates an expected call of Preprocess
-func (mr *MockLightMockRecorder) Preprocess() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Preprocess", reflect.TypeOf((*MockLight)(nil).Preprocess))
+func (mr *MockLightMockRecorder) Preprocess(s interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Preprocess", reflect.TypeOf((*MockLight)(nil).Preprocess), s)
 }
 
 // SampleLi mocks base method
@@ -95,7 +95,7 @@ func (mr *MockLightMockRecorder) Power() *gomock.Call {
 }
 
 // Le mocks base method
-func (m *MockLight) Le(r *RayDifferential) Spectrum {
+func (m *MockLight) Le(r *Ray) Spectrum {
 	ret := m.ctrl.Call(m, "Le", r)
 	ret0, _ := ret[0].(Spectrum)
 	return ret0
@@ -195,13 +195,13 @@ func (mr *MockAreaLighterMockRecorder) GetSamples() *gomock.Call {
 }
 
 // Preprocess mocks base method
-func (m *MockAreaLighter) Preprocess() {
-	m.ctrl.Call(m, "Preprocess")
+func (m *MockAreaLighter) Preprocess(s Scene) {
+	m.ctrl.Call(m, "Preprocess", s)
 }
 
 // Preprocess indicates an expected call of Preprocess
-func (mr *MockAreaLighterMockRecorder) Preprocess() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Preprocess", reflect.TypeOf((*MockAreaLighter)(nil).Preprocess))
+func (mr *MockAreaLighterMockRecorder) Preprocess(s interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Preprocess", reflect.TypeOf((*MockAreaLighter)(nil).Preprocess), s)
 }
 
 // SampleLi mocks base method
@@ -232,7 +232,7 @@ func (mr *MockAreaLighterMockRecorder) Power() *gomock.Call {
 }
 
 // Le mocks base method
-func (m *MockAreaLighter) Le(r *RayDifferential) Spectrum {
+func (m *MockAreaLighter) Le(r *Ray) Spectrum {
 	ret := m.ctrl.Call(m, "Le", r)
 	ret0, _ := ret[0].(Spectrum)
 	return ret0

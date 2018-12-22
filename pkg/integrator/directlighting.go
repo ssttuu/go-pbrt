@@ -59,15 +59,15 @@ func (dli *DirectLighting) Preprocess(scene pbrt.Scene, sampler pbrt.Sampler) {
 	}
 }
 
-func (dli *DirectLighting) Li(ctx context.Context, ray *pbrt.RayDifferential, scene pbrt.Scene, sampler pbrt.Sampler, depth int) pbrt.Spectrum {
+func (dli *DirectLighting) Li(ctx context.Context, ray *pbrt.Ray, scene pbrt.Scene, sampler pbrt.Sampler, depth int) pbrt.Spectrum {
 	L := pbrt.NewSpectrum(0)
 
 	// find closest ray intersection or return background radiance
 	si := pbrt.NewSurfaceInteraction()
-	intersects := scene.Intersect(ray.Ray, si)
+	intersects := scene.Intersect(ray, si)
 	if !intersects {
 		for i := 0; i < len(scene.Lights()); i++ {
-			L.AddAssign(scene.Light(i).Le(pbrt.NewRayDifferentialFromRay(ray.Ray)))
+			L.AddAssign(scene.Light(i).Le(pbrt.NewRayDifferentialFromRay(ray)))
 		}
 		return L
 	}
@@ -103,10 +103,10 @@ func (dli *DirectLighting) Li(ctx context.Context, ray *pbrt.RayDifferential, sc
 	return L
 }
 
-func (dli *DirectLighting) SpecularReflect(ctx context.Context, ray *pbrt.RayDifferential, si *pbrt.SurfaceInteraction, scene pbrt.Scene, sampler pbrt.Sampler, depth int) pbrt.Spectrum {
+func (dli *DirectLighting) SpecularReflect(ctx context.Context, ray *pbrt.Ray, si *pbrt.SurfaceInteraction, scene pbrt.Scene, sampler pbrt.Sampler, depth int) pbrt.Spectrum {
 	return pbrt.SamplerIntegratorSpecularReflect(dli, ctx, ray, si, scene, sampler, depth)
 }
 
-func (dli *DirectLighting) SpecularTransmit(ctx context.Context, ray *pbrt.RayDifferential, si *pbrt.SurfaceInteraction, scene pbrt.Scene, sampler pbrt.Sampler, depth int) pbrt.Spectrum {
+func (dli *DirectLighting) SpecularTransmit(ctx context.Context, ray *pbrt.Ray, si *pbrt.SurfaceInteraction, scene pbrt.Scene, sampler pbrt.Sampler, depth int) pbrt.Spectrum {
 	return pbrt.SamplerIntegratorSpecularTransmit(dli, ctx, ray, si, scene, sampler, depth)
 }

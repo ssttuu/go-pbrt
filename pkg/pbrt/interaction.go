@@ -67,13 +67,25 @@ func (i *interaction) SetMediumAccessor(accessor *MediumAccessor) {
 
 func (i *interaction) SpawnRay(direction *Vector3f) *Ray {
 	origin := OffsetRayOrigin(i.Point, i.PointError, i.Normal, direction)
-	return &Ray{origin, direction, math.Infinity, i.Time, i.GetMedium(direction)}
+	return &Ray{
+		Origin:    origin,
+		Direction: direction,
+		TMax:      math.Infinity,
+		Time:      i.Time,
+		Medium:    i.GetMedium(direction),
+	}
 }
 
 func (i *interaction) SpawnRayToPoint(p *Point3f) *Ray {
-	direction := p.Sub(i.Point)
-	origin := OffsetRayOrigin(i.Point, i.PointError, i.Normal, direction)
-	return &Ray{origin, direction, 1 - math.ShadowEpsilon, i.Time, i.GetMedium(direction)}
+	origin := OffsetRayOrigin(i.Point, i.PointError, i.Normal, p.Sub(i.Point))
+	direction := p.Sub(origin)
+	return &Ray{
+		Origin:    origin,
+		Direction: direction,
+		TMax:      1 - math.ShadowEpsilon,
+		Time:      i.Time,
+		Medium:    i.GetMedium(direction),
+	}
 }
 
 func (i *interaction) SpawnRayToInteraction(to Interaction) *Ray {
@@ -110,7 +122,7 @@ func PhaseHG(cosTheta float64, g float64) float64 {
 }
 
 type Shading struct {
-	normal     *Normal3f
+	Normal     *Normal3f
 	dpdu, dpdv *Vector3f
 	dndu, dndv *Normal3f
 }
@@ -122,10 +134,10 @@ type SurfaceInteraction struct {
 	dpdu, dpdv             *Vector3f
 	dndu, dndv             *Normal3f
 	shape                  Shape
-	shading                *Shading
+	Shading                *Shading
 	Primitive              Primitive
 	BSDF                   *BSDF
-	bssrdf                 *BSSRDF
+	BSSRDF                 *BSSRDF
 	dpdx, dpdy             *Vector3f
 	dudx, dvdx, dudy, dvdy float64
 
@@ -149,8 +161,8 @@ func NewSurfaceInteraction() *SurfaceInteraction {
 		dndu:  new(Normal3f),
 		dndv:  new(Normal3f),
 		shape: nil,
-		shading: &Shading{
-			normal: new(Normal3f),
+		Shading: &Shading{
+			Normal: new(Normal3f),
 			dpdu:   new(Vector3f),
 			dpdv:   new(Vector3f),
 			dndu:   new(Normal3f),
@@ -176,15 +188,15 @@ func NewSurfaceInteractionWith(p *Point3f, pError *Vector3f, uv *Point2f, wo *Ve
 			Wo:         wo,
 			Normal:     normal,
 		},
-		//bssrdf: new(BSSRDF),
+		//BSSRDF: new(BSSRDF),
 		uv:    uv,
 		dpdu:  dpdu,
 		dpdv:  dpdv,
 		dndu:  dndu,
 		dndv:  dndv,
 		shape: shape,
-		shading: &Shading{
-			normal: normal,
+		Shading: &Shading{
+			Normal: normal,
 			dpdu:   dpdu,
 			dpdv:   dpdv,
 			dndu:   dndu,
@@ -202,7 +214,7 @@ func (si *SurfaceInteraction) Le(w *Vector3f) Spectrum {
 	return NewSpectrum(0.0)
 }
 
-func (si *SurfaceInteraction) ComputeScatteringFunctions(ray *RayDifferential, allowMultipleLobes bool, mode TransportMode) {
+func (si *SurfaceInteraction) ComputeScatteringFunctions(ray *Ray, allowMultipleLobes bool, mode TransportMode) {
 	si.ComputeDifferentials(ray)
 	if si.Primitive == nil {
 		return
@@ -210,8 +222,8 @@ func (si *SurfaceInteraction) ComputeScatteringFunctions(ray *RayDifferential, a
 	si.Primitive.ComputeScatteringFunctions(si, mode, allowMultipleLobes)
 }
 
-func (si *SurfaceInteraction) ComputeDifferentials(ray *RayDifferential) {
-	if ray.hasDifferentials {
+func (si *SurfaceInteraction) ComputeDifferentials(ray *Ray) {
+	if ray.HasDifferentials {
 		// estimate screen space change in pt and (u,v)
 
 		// compute auxiliary intersection points with plane

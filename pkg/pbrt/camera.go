@@ -6,7 +6,7 @@ import "github.com/ssttuu/go-pbrt/pkg/math"
 
 type Camera interface {
 	GenerateRay(sample *CameraSample) (float64, *Ray)
-	GenerateRayDifferential(sample *CameraSample) (float64, *RayDifferential)
+	GenerateRayDifferential(sample *CameraSample) (float64, *Ray)
 	We(r *Ray) (Spectrum, *Point2f)
 	PdfWe(r *Ray) (pdfPos, pdfDir float64)
 	SampleWi(ref Interaction, u *Point2f) (s Spectrum, wi *Vector3f, pdf float64, pRaster *Point2f, vis *VisibilityTester)
@@ -39,7 +39,7 @@ func (c *camera) GetFilm() *Film {
 //	return 0, nil
 //}
 //
-//func (c *camera) GenerateRayDifferential(sample *CameraSample) (float64, *RayDifferential) {
+//func (c *camera) GenerateRayDifferential(sample *CameraSample) (float64, *Ray) {
 //	wt, r := c.GenerateRay(sample)
 //	rd := NewRayDifferentialFromRay(r)
 //
@@ -65,7 +65,7 @@ func (c *camera) GetFilm() *Film {
 //
 //	rd.ryOrigin = ry.Origin
 //	rd.ryDirection = ry.Direction
-//	rd.hasDifferentials = true
+//	rd.HasDifferentials = true
 //	return wt, rd
 //}
 
@@ -181,7 +181,7 @@ func (c *PerspectiveCamera) GenerateRay(sample *CameraSample) (float64, *Ray) {
 	return 1.0, c.cameraToWorld.TransformRay(ray)
 }
 
-func (c *PerspectiveCamera) GenerateRayDifferential(sample *CameraSample) (float64, *RayDifferential) {
+func (c *PerspectiveCamera) GenerateRayDifferential(sample *CameraSample) (float64, *Ray) {
 	// compute raster and camera sample position
 	pFilm := &Point3f{sample.pFilm.X, sample.pFilm.Y, 0}
 	pCamera, _ := c.RasterToCamera.TransformPoint(pFilm, NoError)
@@ -225,10 +225,10 @@ func (c *PerspectiveCamera) GenerateRayDifferential(sample *CameraSample) (float
 		ray.rxDirection = pCamera.Add(c.dxCamera).Normalized()
 		ray.ryDirection = pCamera.Add(c.dyCamera).Normalized()
 	}
+	ray = c.cameraToWorld.TransformRay(ray)
 	ray.Time = math.Lerp(sample.time, c.shutterOpen, c.shutterClose)
 	ray.Medium = c.medium
-	ray.Ray = c.cameraToWorld.TransformRay(ray.Ray)
-	ray.hasDifferentials = true
+	ray.HasDifferentials = true
 
 	return 1, ray
 }

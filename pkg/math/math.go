@@ -63,17 +63,17 @@ func Floor(x float64) float64 {
 
 func FindInterval(size int, pred func(int) bool) int {
 	first := 0
-	l := size
+	length := size
 
-	for l > 0 {
-		half := l >> 1
+	for length > 0 {
+		half := length >> 1
 		middle := first + half
 		// bisect range based on value of pred at middle
 		if pred(middle) {
 			first = middle + 1
-			l -= half + 1
+			length -= half + 1
 		} else {
-			l = half
+			length = half
 		}
 	}
 	return int(Clamp(float64(first-1), 0, float64(size-2)))
