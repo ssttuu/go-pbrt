@@ -7,6 +7,7 @@ import (
 	"github.com/ssttuu/go-pbrt/pkg/accelerator"
 	"github.com/ssttuu/go-pbrt/pkg/integrator"
 	"github.com/ssttuu/go-pbrt/pkg/lights"
+	"github.com/ssttuu/go-pbrt/pkg/materials"
 	"github.com/ssttuu/go-pbrt/pkg/pbrt"
 	"github.com/ssttuu/go-pbrt/pkg/proto/render"
 	"github.com/ssttuu/go-pbrt/pkg/shapes"
@@ -73,7 +74,7 @@ func (s *server) Render(ctx context.Context, req *render.RenderRequest) (*render
 		pbrt.NewConstantSpectrumTexture(pbrt.NewSpectrum(1.0)),
 		pbrt.NewConstantSpectrumTexture(pbrt.NewSpectrum(0.18)),
 	)
-	m := pbrt.NewMatteMaterial(checkerboard, sigma, nil)
+	m := materials.NewMatteMaterial(checkerboard, sigma, nil)
 	//glass := materials.NewGlass(
 	//	pbrt.NewConstantSpectrumTexture(pbrt.NewSpectrum(.5)),
 	//	pbrt.NewConstantSpectrumTexture(pbrt.NewSpectrum(.5)),
@@ -90,7 +91,7 @@ func (s *server) Render(ctx context.Context, req *render.RenderRequest) (*render
 	//xformPrim := pbrt.NewTransformedPrimitive(geoPrim, pbrt.NewAnimatedTransform(xformLocal, xformLocal, 0, 1))
 	//primitives = append(primitives, xformPrim)
 
-	sigma = pbrt.NewConstantFloatTexture(0.0)
+	//sigma = pbrt.NewConstantFloatTexture(0.0)
 	diskXform := pbrt.Translate(new(pbrt.Vector3f)).Mul(pbrt.RotateX(90))
 	disk := shapes.NewDisk(diskXform, 0.01, 10000, 0, 360)
 	disk2 := shapes.NewDisk(pbrt.Translate(&pbrt.Vector3f{-50, 0, -50}), 0.01, 10000, 0, 360)
@@ -101,16 +102,16 @@ func (s *server) Render(ctx context.Context, req *render.RenderRequest) (*render
 	agg := accelerator.NewBVH(primitives, 2, accelerator.SplitSAH)
 
 	ls := []pbrt.Light{
-		lights.NewDistant(
-			pbrt.Translate(&pbrt.Vector3f{-100, 100, 100}),
-			pbrt.NewSpectrum(0.05),
-			&pbrt.Vector3f{-1, 1, 1},
-		),
-		//lights.NewPoint(
-		//	pbrt.Translate(&pbrt.Vector3f{50, 20, 50}),
-		//	nil,
-		//	pbrt.NewSpectrum(100),
+		//lights.NewDistant(
+		//	pbrt.Translate(&pbrt.Vector3f{-100, 100, 100}),
+		//	pbrt.NewSpectrum(0.05),
+		//	&pbrt.Vector3f{-1, 1, 1},
 		//),
+		lights.NewPoint(
+			pbrt.Translate(&pbrt.Vector3f{50, 20, 50}),
+			nil,
+			pbrt.NewSpectrum(100),
+		),
 		//lights.NewPoint(
 		//	pbrt.Translate(&pbrt.Vector3f{-50, 30, -50}),
 		//	nil,
@@ -136,7 +137,7 @@ func (s *server) Render(ctx context.Context, req *render.RenderRequest) (*render
 	boxFilter := pbrt.NewBoxFilter(&pbrt.Point2f{X: 1, Y: 1})
 
 	pixelBounds := &pbrt.Bounds2i{Min: &pbrt.Point2i{X: 0, Y: 0}, Max: resolution}
-	sampler := pbrt.NewRandomSampler(8, 4)
+	sampler := pbrt.NewRandomSampler(2, 4)
 
 	if _, err := os.Stat("build"); os.IsNotExist(err) {
 		if err := os.Mkdir("build", 0644); err != nil {

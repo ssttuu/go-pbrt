@@ -50,14 +50,13 @@ func SampleAtInteraction(s Shape, ref Interaction, u *Point2f) (intr Interaction
 	intr, pdf = s.Sample(u)
 	wi := intr.GetPoint().Sub(ref.GetPoint())
 	if wi.LengthSquared() == 0.0 {
+		return intr, 0
+	}
+	wi.Normalize()
+	// Convert from area measure, as returned by the Sample() call above, to solid angle measure.
+	pdf *= ref.GetPoint().DistanceSquared(intr.GetPoint()) / intr.GetNormal().AbsDot(wi.MulScalar(-1))
+	if math.IsInf(pdf) {
 		pdf = 0
-	} else {
-		wi.Normalize()
-		// Convert from area measure, as returned by the Sample() call above, to solid angle measure.
-		pdf *= ref.GetPoint().DistanceSquared(intr.GetPoint()) / intr.GetNormal().AbsDot(wi.MulScalar(-1))
-		if math.IsInf(pdf) {
-			pdf = 0
-		}
 	}
 
 	return intr, pdf
