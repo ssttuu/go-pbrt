@@ -69,7 +69,7 @@ func (p *Path) Li(ctx context.Context, r *pbrt.Ray, scene pbrt.Scene, sampler pb
 		}
 
 		// Compute scattering functions and skip over medium boundaries
-		isect.ComputeScatteringFunctions(ray, true, pbrt.Radiance) // TODO: is pbrt.Radiance correct?
+		isect.ComputeScatteringFunctions(ray, true, pbrt.Radiance)
 		if isect.BSDF == nil {
 			// TODO: double check
 			ray = isect.SpawnRay(ray.Direction)

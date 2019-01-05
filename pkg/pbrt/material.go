@@ -31,37 +31,4 @@ func Bump(m Material, d FloatTexture, si *SurfaceInteraction) {
 	}
 
 	siEval.Point = si.Point.Add(si.Shading.dpdu.MulScalar(du))
-
-}
-
-type MatteMaterial struct {
-	Kd             SpectrumTexture
-	sigma, bumpMap FloatTexture
-}
-
-func NewMatteMaterial(Kd SpectrumTexture, sigma, bumpMap FloatTexture) *MatteMaterial {
-	return &MatteMaterial{
-		Kd:      Kd,
-		sigma:   sigma,
-		bumpMap: bumpMap,
-	}
-}
-
-func (m *MatteMaterial) ComputeScatteringFunctions(si *SurfaceInteraction, mode TransportMode, allowMultipleLobes bool) {
-	if m.bumpMap != nil {
-		Bump(m, m.bumpMap, si)
-	}
-
-	// evaluate textures for MatteMaterial and allocate BRDF
-	si.BSDF = NewBSDF(si, 1.0)
-	r := m.Kd.Evaluate(si).Clamp(0, math.Inf(1))
-	sig := math.Clamp(m.sigma.Evaluate(si), 0, 90)
-	if !r.IsBlack() {
-		if sig == 0 {
-			si.BSDF.Add(NewLambertianReflection(r))
-		} else {
-			si.BSDF.Add(NewOrenNayar(r, sig))
-		}
-	}
-
 }
