@@ -1,6 +1,7 @@
 package pbrt
 
 import (
+	"fmt"
 	"github.com/ssttuu/go-pbrt/pkg/math"
 )
 
@@ -217,11 +218,14 @@ func (b *BSDF) SampleF(woWorld *Vector3f, u *Point2f, t BxDFType) (s Spectrum, w
 	if pdf == 0.0 {
 		return NewSpectrum(0), new(Vector3f), 0, BxDFType(0)
 	}
+	if pdf > 0.0 && pdf < 0.000001 {
+		fmt.Println(pdf)
+	}
 
 	wiWorld := b.LocalToWorld(wi)
 
 	// compute overall PDF with all matching BxDFs
-	if (bxdf.GetType()&BSDFSpecular == 0) && matchingComps > 1 {
+	if (bxdf.GetType()&BSDFSpecular <= 0) && matchingComps > 1 {
 		for i := 0; i < b.nBxDFs; i++ {
 			if b.bxdfs[i] != bxdf && MatchesFlags(b.bxdfs[i].GetType(), t) {
 				pdf += b.bxdfs[i].Pdf(wo, wi)
@@ -297,10 +301,6 @@ func (b *bxDF) GetType() BxDFType {
 func MatchesFlags(t, flags BxDFType) bool {
 	return (t & flags) == t
 }
-
-//func (b *bxDF) F(Wo, wi *Vector3f) Spectrum {
-//	return nil
-//}
 
 func sampleF(b BxDF, wo *Vector3f, sample *Point2f) (s Spectrum, wi *Vector3f, pdf float64, sampledType BxDFType) {
 	// cosine sample the hemisphere, flipping the Direction if necessary
