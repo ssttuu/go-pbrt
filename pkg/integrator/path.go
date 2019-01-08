@@ -117,10 +117,27 @@ func (p *Path) Li(ctx context.Context, r *pbrt.Ray, scene pbrt.Scene, sampler pb
 		ray = isect.SpawnRay(wi)
 
 		// Account for subsurface scattering, if applicable
-		// TODO!!! SKIPPING FOR NOW
 		if isect.BSSRDF != nil && flags&pbrt.BSDFTransmission > 0 {
 			// importance sample the BSSRDF
-			// S := isect.BSSRDF.SampleS(scene)
+			pi := pbrt.NewSurfaceInteraction()
+			S, pdf := isect.BSSRDF.SampleS(scene, sampler.Get1D(), sampler.Get2D(), pi)
+			if S.IsBlack() || pdf == 0 {
+				break
+			}
+			beta = S.DivScalar(pdf)
+
+			// account for the direct subsurface scattering component
+			L.AddAssign(beta.Mul(pbrt.UniformSampleOneLight(pi, scene, sampler, false, p.lightDistribution.Lookup(pi.Point))))
+
+			// account for the indirect subsurface scattering component
+			f, wi, pdf, _ := pi.BSDF.SampleF(pi.Wo, sampler.Get2D(), pbrt.BSDFAll)
+			if f.IsBlack() || pdf == 0 {
+				break
+			}
+			beta.MulAssign(f.MulScalar(wi.AbsDot(pi.Shading.Normal) / pdf))
+			specularBounce = flags & pbrt.BSDFSpecular != 0
+			ray = pi.SpawnRay(wi)
+
 		}
 
 		// possibly terminate the path with Russian roulette.

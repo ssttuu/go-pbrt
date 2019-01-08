@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
 
 function example() {
-    go run ./cmd/example/*.go
+    pbrtd
+}
+
+function pbrtd() {
+    go run ./cmd/pbrtd/*.go
 }
 
 function tests() {

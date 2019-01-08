@@ -137,7 +137,7 @@ type SurfaceInteraction struct {
 	Shading                *Shading
 	Primitive              Primitive
 	BSDF                   *BSDF
-	BSSRDF                 *BSSRDF
+	BSSRDF                 BSSRDF
 	dpdx, dpdy             *Vector3f
 	dudx, dvdx, dudy, dvdy float64
 

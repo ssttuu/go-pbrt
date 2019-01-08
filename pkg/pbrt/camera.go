@@ -87,6 +87,14 @@ type CameraSample struct {
 	time  float64
 }
 
+func NewCameraSample(pFilm, pLens *Point2f, time float64) *CameraSample {
+	return &CameraSample{
+		pFilm: pFilm,
+		pLens: pLens,
+		time:  time,
+	}
+}
+
 type ProjectiveCamera struct {
 	*camera
 

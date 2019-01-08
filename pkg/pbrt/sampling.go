@@ -52,7 +52,96 @@ func (d *Distribution1D) SampleDiscrete(u float64) (value int, pdf float64, uRem
 	uRemapped = (u - d.Cdf[offset]) / (d.Cdf[offset+1] - d.Cdf[offset])
 
 	return offset, pdf, uRemapped
+}
 
+func LatinHypercube(samples []float64, nSamples, nDim int32, rng *RandomNumberGenerator) {
+	// Generate LHS samples along diagonal
+	invNSamples := 1.0 / float64(nSamples)
+	for i := int32(0); i < nSamples; i++ {
+		for j := int32(0); j < nDim; j++ {
+			sj := (float64(i) + rng.UniformFloat()) * invNSamples
+			samples[nDim * i + j] = math.Min(sj, math.OneMinusEpsilon)
+		}
+	}
+
+	// Permute LHS samples in each dimension
+	for i := int32(0); i < nDim; i++ {
+		for j := int32(0); j < nSamples; j++ {
+			other := j + int32(rng.UniformUInt32B(uint32(nSamples - j)))
+			samples[nDim * j + i], samples[nDim * other + i] = samples[nDim * other + i], samples[nDim * j + i]
+		}
+	}
+}
+
+func LatinHypercube2D(samples []Point2f, rng *RandomNumberGenerator) {
+	// Generate LHS samples along diagonal
+	nSamples := len(samples)
+	invNSamples := 1.0 / float64(nSamples)
+	for i := 0; i < nSamples; i++ {
+		// for X and Y
+		for j := 0; j < 2; j++ {
+			sj := (float64(i) + rng.UniformFloat()) * invNSamples
+			samples[i].SetIndex(j, math.Min(sj, math.OneMinusEpsilon))
+		}
+	}
+
+	// Permute LHS samples in each dimension
+	for i := 0; i < 2; i++ {
+		for j := 0; j < nSamples; j++ {
+			other := j + int(rng.UniformUInt32B(uint32(nSamples - j)))
+
+			// swap
+			tmp := samples[j].GetIndex(i)
+			samples[j].SetIndex(i, samples[other].GetIndex(i))
+			samples[other].SetIndex(i, tmp)
+		}
+	}
+}
+
+func StratifiedSample1D(samp []float64, nSamples int32, rng *RandomNumberGenerator, jitter bool) {
+	invNSamples := 1.0 / float64(nSamples)
+	for i := int32(0); i < nSamples; i++ {
+		delta := 0.5
+		if jitter {
+			delta = rng.UniformFloat()
+		}
+		samp[i] = math.Min((float64(i)+delta) * invNSamples, math.OneMinusEpsilon)
+	}
+}
+
+func StratifiedSample2D(samp []Point2f, nx, ny int32, rng *RandomNumberGenerator, jitter bool) {
+	var dx float64 = 1.0 / float64(nx)
+	var dy float64 = 1.0 / float64(ny)
+	for y := int32(0); y < ny; y++ {
+		for x := int32(0); x < nx; x++ {
+			jx, jy := 0.5, 0.5
+			if jitter {
+				jx = rng.UniformFloat()
+				jy = rng.UniformFloat()
+			}
+			s := samp[y * nx + x]
+			s.X = math.Min((float64(x) + jx) * dx, math.OneMinusEpsilon)
+			s.X = math.Min((float64(y) + jy) * dy, math.OneMinusEpsilon)
+		}
+	}
+}
+
+func ShuffleSamples1D(samp []float64, count, nDimensions int32, rng *RandomNumberGenerator) {
+	for i := int32(0); i < count; i++ {
+		other := i + int32(rng.UniformUInt32B(uint32(count - i)))
+		for j := int32(0); j < nDimensions; j++ {
+			samp[nDimensions * i + j], samp[nDimensions * other + j] = samp[nDimensions * other + j], samp[nDimensions * i + j]
+		}
+	}
+}
+
+func ShuffleSamples2D(samp []Point2f, count, nDimensions int32, rng *RandomNumberGenerator) {
+	for i := int32(0); i < count; i++ {
+		other := i + int32(rng.UniformUInt32B(uint32(count - i)))
+		for j := int32(0); j < nDimensions; j++ {
+			samp[nDimensions * i + j], samp[nDimensions * other + j] = samp[nDimensions * other + j], samp[nDimensions * i + j]
+		}
+	}
 }
 
 func UniformSampleHemisphere(u *Point2f) *Vector3f {
@@ -86,7 +175,7 @@ func ConcentricSampleDisk(u *Point2f) *Point2f {
 
 	// handle degeneracy at the Origin
 	if uOffset.X == 0 && uOffset.Y == 0 {
-		return &Point2f{}
+		return new(Point2f)
 	}
 
 	// apply concentric mapping to Point
@@ -98,7 +187,8 @@ func ConcentricSampleDisk(u *Point2f) *Point2f {
 		r = uOffset.Y
 		theta = math.PiOver2 - math.PiOver4*(uOffset.X/uOffset.Y)
 	}
-	return new(Point2f).Set(math.Cos(theta), math.Sin(theta)).MulScalar(r)
+	p := &Point2f{math.Cos(theta), math.Sin(theta)}
+	return p.MulScalar(r)
 }
 
 func CosineSampleHemisphere(u *Point2f) *Vector3f {
